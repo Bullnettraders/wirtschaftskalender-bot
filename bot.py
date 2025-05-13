@@ -2,17 +2,15 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from forexfactory_scraper import get_forex_calendar  # NEU: Forex Scraper importieren
+from te_calendar import get_te_calendar  # NEU!
 
-# Intents korrekt setzen
+# Intents aktivieren
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 
-# Bot einrichten
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Token und Channel-ID aus Render Environment Variables laden
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
@@ -21,7 +19,7 @@ async def on_ready():
     print(f"Bot ist online als {bot.user}")
     economic_calendar_loop.start()
 
-# Hintergrundtask: Holt alle 30 Minuten Kalenderdaten
+# Hintergrundtask: Alle 30 Minuten
 @tasks.loop(minutes=30)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
@@ -29,7 +27,7 @@ async def economic_calendar_loop():
 
     if 8 <= current_hour <= 22:
         channel = bot.get_channel(CHANNEL_ID)
-        events = get_forex_calendar()
+        events = get_te_calendar()
 
         if not events:
             await channel.send(f"📅 Keine Wirtschaftstermine gefunden ({now.strftime('%d.%m.%Y')})")
@@ -60,11 +58,11 @@ async def economic_calendar_loop():
     else:
         print(f"Ignoriert um {now.strftime('%H:%M')} (außerhalb 8-22 Uhr)")
 
-# MANUELL: Update Befehl (!update)
+# MANUELLER Befehl !update
 @bot.command()
 async def update(ctx):
     """Manuelles Abrufen der Wirtschaftsdaten"""
-    events = get_forex_calendar()
+    events = get_te_calendar()
 
     if not events:
         await ctx.send(f"📅 Keine Wirtschaftstermine gefunden ({datetime.datetime.now().strftime('%d.%m.%Y')})")
@@ -93,5 +91,4 @@ async def update(ctx):
 
     await ctx.send(message)
 
-# Bot starten
 bot.run(DISCORD_TOKEN)
