@@ -11,8 +11,10 @@ def get_te_calendar():
     url = f"https://api.tradingeconomics.com/calendar?c={api_key}&f=json"
 
     response = requests.get(url)
+    print(response.text)  # NEU: Zeigt im Render-Log die Antwort an
+
     if response.status_code != 200:
-        print("Fehler beim Abrufen der Daten von TradingEconomics:", response.status_code)
+        print("Fehler beim Abrufen der Daten:", response.status_code)
         return []
 
     data = response.json()
@@ -27,6 +29,7 @@ def get_te_calendar():
         event_country = event['Country'].lower()
         event_date = event['DateTime'].split('T')[0]
 
+        # Filter: Nur Deutschland und USA
         if event_country in ["germany", "united states"] and event_date == today:
             time = event['DateTime'].split('T')[1][:5]
             events.append({
