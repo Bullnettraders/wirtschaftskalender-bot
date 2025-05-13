@@ -13,7 +13,7 @@ def get_te_calendar():
     try:
         response = requests.get(url)
         print("🔵 API Antwort von TradingEconomics:")
-        print(response.text)  # GANZ WICHTIG: zeigt komplette API Antwort in Logs!
+        print(response.text)
 
         if response.status_code != 200:
             print(f"❌ API Fehler: Status Code {response.status_code}")
@@ -35,19 +35,40 @@ def get_te_calendar():
             event_country = event['Country'].lower()
             event_date = event['DateTime'].split('T')[0]
 
-            if event_country in ["germany", "united states"] and event_date == today:
+            if event_country in ["germany", "united states", "euro area"] and event_date == today:
                 time = event['DateTime'].split('T')[1][:5]
                 events.append({
-                    "country": "de" if event_country == "germany" else "us",
+                    "country": event_country,
                     "time": time,
                     "title": event.get('Event', 'Keine Beschreibung')
                 })
 
         if not events:
-            print("⚠️ Heute keine Events gefunden für Deutschland oder USA.")
+            print("⚠️ Heute keine Events gefunden für Deutschland, Euro Area oder USA.")
 
         return events
 
     except Exception as e:
         print(f"❌ Ausnahmefehler bei API Anfrage: {e}")
         return []
+country_names = {
+    "germany": "🇩🇪 Deutschland",
+    "united states": "🇺🇸 USA",
+    "euro area": "🇪🇺 Eurozone"
+}
+
+...
+
+message = f"📅 **Wirtschaftskalender Update {now.strftime('%H:%M')} Uhr**\n\n"
+
+countries = ["germany", "euro area", "united states"]
+
+for country in countries:
+    country_events = [e for e in events if e['country'] == country]
+    if country_events:
+        message += f"{country_names[country]}:\n"
+        for event in country_events:
+            message += f"- {event['time']} Uhr: {event['title']}\n"
+    else:
+        message += f"Keine Termine für {country_names[country]} heute.\n"
+    message += "\n"
