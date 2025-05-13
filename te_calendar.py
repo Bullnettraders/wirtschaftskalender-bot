@@ -4,11 +4,15 @@ import os
 
 def get_te_calendar():
     api_key = os.getenv("TRADING_ECONOMICS_API_KEY")
+    if not api_key:
+        print("API Key fehlt!")
+        return []
+
     url = f"https://api.tradingeconomics.com/calendar?c={api_key}&f=json"
 
     response = requests.get(url)
     if response.status_code != 200:
-        print("Fehler beim Abrufen der Daten von TradingEconomics")
+        print("Fehler beim Abrufen der Daten von TradingEconomics:", response.status_code)
         return []
 
     data = response.json()
