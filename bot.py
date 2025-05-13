@@ -1,8 +1,9 @@
 import discord
 from discord.ext import commands, tasks
 import datetime
+import asyncio
 import os
-from tradingview_scraper import get_tradingview_calendar  # Neu: Import aus tradingview_scraper
+from tradingview_scraper import get_tradingview_calendar
 
 # Intents setzen
 intents = discord.Intents.default()
@@ -16,8 +17,21 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 @bot.event
 async def on_ready():
-    print(f"✅ Bot ist online als {bot.user}")
-    economic_calendar_loop.start()
+    if not economic_calendar_loop.is_running():
+        print(f"✅ Bot ist online als {bot.user}")
+        economic_calendar_loop.start()
+
+async def safe_send(channel, content):
+    """Sicheres Senden, wartet bei Rate-Limit automatisch."""
+    try:
+        await channel.send(content)
+    except discord.errors.HTTPException as e:
+        if e.status == 429:
+            print("⚠️ Rate Limit erreicht! Warte 10 Sekunden...")
+            await asyncio.sleep(10)
+            await channel.send(content)
+        else:
+            raise e
 
 @tasks.loop(minutes=30)
 async def economic_calendar_loop():
@@ -34,7 +48,7 @@ async def economic_calendar_loop():
         }
 
         if not events:
-            await channel.send(f"📅 Keine Wirtschaftstermine gefunden ({now.strftime('%d.%m.%Y')})")
+            await safe_send(channel, f"📅 Keine Wirtschaftstermine gefunden ({now.strftime('%d.%m.%Y')})")
             return
 
         message = f"📅 **Wirtschaftskalender Update {now.strftime('%H:%M')} Uhr**\n\n"
@@ -51,7 +65,7 @@ async def economic_calendar_loop():
                 message += f"Keine Termine für {country_names[country]} heute.\n"
             message += "\n"
 
-        await channel.send(message)
+        await safe_send(channel, message)
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 8-22 Uhr)")
 
@@ -66,7 +80,7 @@ async def update(ctx):
     }
 
     if not events:
-        await ctx.send(f"📅 Keine Wirtschaftstermine gefunden ({datetime.datetime.now().strftime('%d.%m.%Y')})")
+        await safe_send(ctx, f"📅 Keine Wirtschaftstermine gefunden ({datetime.datetime.now().strftime('%d.%m.%Y')})")
         return
 
     message = f"📅 **Manuelles Wirtschaftskalender Update {datetime.datetime.now().strftime('%H:%M')} Uhr**\n\n"
@@ -83,6 +97,6 @@ async def update(ctx):
             message += f"Keine Termine für {country_names[country]} heute.\n"
         message += "\n"
 
-    await ctx.send(message)
+    await safe_send(ctx, message)
 
 bot.run(DISCORD_TOKEN)
