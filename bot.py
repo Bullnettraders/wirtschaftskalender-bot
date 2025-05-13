@@ -2,9 +2,9 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from te_calendar import get_te_calendar  # Holt Events
+from te_calendar import get_te_calendar  # Import korrekt!
 
-# Intents setzen (wichtige Berechtigungen)
+# Intents setzen (für Nachrichten-Inhalte)
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
@@ -19,7 +19,7 @@ async def on_ready():
     print(f"✅ Bot ist online als {bot.user}")
     economic_calendar_loop.start()
 
-# Alle 30 Minuten Wirtschaftskalender prüfen
+# Hintergrundtask: alle 30 Minuten
 @tasks.loop(minutes=30)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
@@ -57,10 +57,10 @@ async def economic_calendar_loop():
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 8-22 Uhr)")
 
-# MANUELLER Befehl: !update
+# Manuelle Aktualisierung über !update
 @bot.command()
 async def update(ctx):
-    """Manuelles Abrufen der aktuellen Wirtschaftstermine"""
+    """Manuelles Abrufen der Wirtschaftstermine"""
     events = get_te_calendar()
 
     country_names = {
