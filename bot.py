@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from investing_scraper import get_investing_calendar  # Neu: Scraper importieren
+from tradingview_scraper import get_tradingview_calendar  # Neu: Import aus tradingview_scraper
 
 # Intents setzen
 intents = discord.Intents.default()
@@ -26,7 +26,7 @@ async def economic_calendar_loop():
 
     if 8 <= current_hour <= 22:
         channel = bot.get_channel(CHANNEL_ID)
-        events = get_investing_calendar()
+        events = get_tradingview_calendar()
 
         country_names = {
             "de": "🇩🇪 Deutschland",
@@ -58,7 +58,7 @@ async def economic_calendar_loop():
 @bot.command()
 async def update(ctx):
     """Manuelles Abrufen der aktuellen Wirtschaftstermine"""
-    events = get_investing_calendar()
+    events = get_tradingview_calendar()
 
     country_names = {
         "de": "🇩🇪 Deutschland",
