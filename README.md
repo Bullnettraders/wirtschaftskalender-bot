@@ -6,7 +6,7 @@ Ein Discord Bot, der automatisch jeden Tag den Wirtschaftskalender für Deutschl
 
 - Python 3.10 oder neuer
 - Discord Bot Token
-- Render.com Account für 24/7 Hosting
+- Render.com Account für Hosting
 
 ## Installation lokal
 
