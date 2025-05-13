@@ -18,22 +18,27 @@ def get_investing_calendar():
         return events
 
     rows = table.find_all("tr", class_="js-event-item")
-    today = datetime.now().strftime("%b %d, %Y")
+    today = datetime.now().strftime("%Y/%m/%d")
 
     for row in rows:
         date_attr = row.get("data-event-datetime")
         if not date_attr:
             continue
-        event_time = datetime.utcfromtimestamp(int(date_attr))
-        event_time_local = event_time.strftime("%H:%M")
-        country = row.get("data-country")
-        title = row.find("td", class_="event").get_text(strip=True)
 
-        if country in ["de", "us"] and event_time.strftime("%Y-%m-%d") == datetime.now().strftime("%Y-%m-%d"):
-            events.append({
-                "country": country,
-                "time": event_time_local,
-                "title": title
-            })
+        if date_attr.startswith(today):
+            try:
+                event_time = datetime.strptime(date_attr, "%Y/%m/%d %H:%M:%S")
+                event_time_local = event_time.strftime("%H:%M")
+                country = row.get("data-country")
+                title = row.find("td", class_="event").get_text(strip=True)
+
+                if country in ["de", "us"]:
+                    events.append({
+                        "country": country,
+                        "time": event_time_local,
+                        "title": title
+                    })
+            except Exception as e:
+                print(f"Fehler beim Verarbeiten eines Events: {e}")
 
     return events
