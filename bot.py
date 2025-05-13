@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from investing_scraper import get_investing_calendar
+from forexfactory_scraper import get_forex_calendar
 
 # Intents aktivieren (wichtig für Befehle wie !update)
 intents = discord.Intents.default()
