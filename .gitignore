@@ -1,0 +1,7 @@
+# Ignoriere geheime Konfiguration
+config.py
+
+# Python Cache Dateien
+__pycache__/
+*.pyc
+.env
