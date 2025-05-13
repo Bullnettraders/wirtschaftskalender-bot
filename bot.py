@@ -2,9 +2,9 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from te_calendar import get_te_calendar  # Import korrekt!
+from investing_scraper import get_investing_calendar  # Neu: Scraper importieren
 
-# Intents setzen (für Nachrichten-Inhalte)
+# Intents setzen
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
@@ -19,7 +19,6 @@ async def on_ready():
     print(f"✅ Bot ist online als {bot.user}")
     economic_calendar_loop.start()
 
-# Hintergrundtask: alle 30 Minuten
 @tasks.loop(minutes=30)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
@@ -27,12 +26,11 @@ async def economic_calendar_loop():
 
     if 8 <= current_hour <= 22:
         channel = bot.get_channel(CHANNEL_ID)
-        events = get_te_calendar()
+        events = get_investing_calendar()
 
         country_names = {
-            "germany": "🇩🇪 Deutschland",
-            "united states": "🇺🇸 USA",
-            "euro area": "🇪🇺 Eurozone"
+            "de": "🇩🇪 Deutschland",
+            "us": "🇺🇸 USA"
         }
 
         if not events:
@@ -41,7 +39,7 @@ async def economic_calendar_loop():
 
         message = f"📅 **Wirtschaftskalender Update {now.strftime('%H:%M')} Uhr**\n\n"
 
-        countries = ["germany", "euro area", "united states"]
+        countries = ["de", "us"]
 
         for country in countries:
             country_events = [e for e in events if e['country'] == country]
@@ -57,16 +55,14 @@ async def economic_calendar_loop():
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 8-22 Uhr)")
 
-# Manuelle Aktualisierung über !update
 @bot.command()
 async def update(ctx):
-    """Manuelles Abrufen der Wirtschaftstermine"""
-    events = get_te_calendar()
+    """Manuelles Abrufen der aktuellen Wirtschaftstermine"""
+    events = get_investing_calendar()
 
     country_names = {
-        "germany": "🇩🇪 Deutschland",
-        "united states": "🇺🇸 USA",
-        "euro area": "🇪🇺 Eurozone"
+        "de": "🇩🇪 Deutschland",
+        "us": "🇺🇸 USA"
     }
 
     if not events:
@@ -75,7 +71,7 @@ async def update(ctx):
 
     message = f"📅 **Manuelles Wirtschaftskalender Update {datetime.datetime.now().strftime('%H:%M')} Uhr**\n\n"
 
-    countries = ["germany", "euro area", "united states"]
+    countries = ["de", "us"]
 
     for country in countries:
         country_events = [e for e in events if e['country'] == country]
