@@ -127,4 +127,19 @@ def get_te_calendar():
             event_country = event['Country'].lower()
             event_date = event['DateTime'].split('T')[0]
 
-            if event_country in
+            if event_country in ["germany", "united states", "euro area"] and event_date == today:
+                time = event['DateTime'].split('T')[1][:5]
+                events.append({
+                    "country": event_country,
+                    "time": time,
+                    "title": event.get('Event', 'Keine Beschreibung')
+                })
+
+        if not events:
+            print("⚠️ Heute keine Events gefunden für Deutschland, Euro Area oder USA.")
+
+        return events
+
+    except Exception as e:
+        print(f"❌ Ausnahmefehler bei API Anfrage: {e}")
+        return []
