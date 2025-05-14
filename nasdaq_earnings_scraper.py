@@ -7,43 +7,50 @@ def get_nasdaq_earnings():
     url = f"https://www.nasdaq.com/market-activity/earnings?date={today}"
 
     headers = {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
 
     try:
         response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        events = []
-        table = soup.find("table", {"class": "earnings-calendar__table"})
-
-        if not table:
-            print("❌ Keine Tabelle gefunden.")
+        if response.status_code != 200:
+            print(f"❌ Fehler: Status Code {response.status_code}")
             return []
 
-        rows = table.find_all("tr")
-        for row in rows[1:]:  # Skip header row
+        soup = BeautifulSoup(response.text, "html.parser")
+        earnings_section = soup.find('div', class_="earnings-calendar__table-wrapper")
+
+        if not earnings_section:
+            print("❌ Earnings Bereich nicht gefunden.")
+            return []
+
+        table = earnings_section.find("table")
+        if not table:
+            print("❌ Tabelle nicht gefunden.")
+            return []
+
+        events = []
+        rows = table.find_all("tr")[1:]  # erste Zeile ist Header
+
+        for row in rows:
             cols = row.find_all("td")
-            if len(cols) < 5:
-                continue
+            if len(cols) >= 5:
+                ticker = cols[0].text.strip()
+                company = cols[1].text.strip()
+                report_time = cols[2].text.strip()
+                eps_estimate = cols[3].text.strip()
+                revenue_estimate = cols[4].text.strip()
 
-            ticker = cols[0].text.strip()
-            company = cols[1].text.strip()
-            report_time = cols[2].text.strip()
-            eps_estimate = cols[3].text.strip()
-            revenue_estimate = cols[4].text.strip()
+                events.append({
+                    "ticker": ticker,
+                    "company": company,
+                    "report_time": report_time,
+                    "eps_estimate": eps_estimate,
+                    "revenue_estimate": revenue_estimate
+                })
 
-            events.append({
-                "ticker": ticker,
-                "company": company,
-                "report_time": report_time,
-                "eps_estimate": eps_estimate,
-                "revenue_estimate": revenue_estimate
-            })
-
-        print(f"🟢 Gefundene Nasdaq Earnings: {len(events)}")
+        print(f"🟢 Nasdaq Earnings gefunden: {len(events)} Einträge.")
         return events
 
     except Exception as e:
-        print(f"❌ Fehler beim Abrufen von Nasdaq Earnings: {e}")
+        print(f"❌ Fehler beim Abrufen der Nasdaq Earnings: {e}")
         return []
