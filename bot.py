@@ -132,4 +132,12 @@ async def hilfe(ctx):
     embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
     await ctx.send(embed=embed)
 
+@bot.command()
+async def earnings(ctx):
+    """Zeigt die Earnings des Tages an"""
+    earnings = get_yahoo_earnings()
+    embed = create_earnings_embed(earnings, title="📈 Earnings Übersicht (manuell)")
+    await ctx.send(embed=embed)
+
+
 bot.run(DISCORD_TOKEN)
