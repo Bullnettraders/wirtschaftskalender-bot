@@ -117,6 +117,7 @@ async def economic_calendar_loop():
         # Wirtschaftskalender
         events = get_investing_calendar()
         if now.hour == 8 and now.minute <= 5:
+            # Morgens Tagesübersicht Wirtschaft senden
             embed = create_calendar_embed(events, title="📅 Tageskalender Wirtschaft")
             await calendar_channel.send(embed=embed)
         else:
