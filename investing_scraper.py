@@ -50,16 +50,17 @@ def get_investing_calendar():
                 date_col = row.find("td", {"class": "theDay"})
                 event_date = date_col.text.strip() if date_col else today
 
-                if importance >= 2 and country in ["germany", "united states", "usa", "us"] and event_date == today:
-                    events.append({
-                        "country": country,
-                        "time": event_time,
-                        "title": event_name,
-                        "actual": actual,
-                        "forecast": forecast,
-                        "previous": previous,
-                        "importance": importance
-                    })
+                if importance >= 2 and country in ["germany", "united states"] and event_date == today:
+    events.append({
+        "country": country,
+        "time": event_time,
+        "title": event_name,
+        "actual": actual,
+        "forecast": forecast,
+        "previous": previous,
+        "importance": importance
+    })
+
 
             except Exception as e:
                 print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
