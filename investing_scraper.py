@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-posted_events = set()  # Speichert Events, die schon gepostet wurden
+posted_events = set()
 
 def get_investing_calendar():
     url = "https://m.investing.com/economic-calendar/"
@@ -19,7 +19,7 @@ def get_investing_calendar():
 
         table = soup.find("table", {"class": "genTbl"})
         if not table:
-            print("❌ Tabelle nicht gefunden")
+            print("❌ Tabelle nicht gefunden.")
             return []
 
         rows = table.find_all("tr")
@@ -50,7 +50,7 @@ def get_investing_calendar():
                 date_col = row.find("td", {"class": "theDay"})
                 event_date = date_col.text.strip() if date_col else today
 
-                if importance >= 2 and country in ["germany", "united states"] and event_date == today:
+                if importance >= 2 and country in ["germany", "united states", "usa", "us"] and event_date == today:
                     events.append({
                         "country": country,
                         "time": event_time,
