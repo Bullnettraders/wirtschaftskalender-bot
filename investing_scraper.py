@@ -7,13 +7,16 @@ posted_events = set()
 def get_investing_calendar():
     url = "https://m.investing.com/economic-calendar/"
     headers = {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
 
     try:
         response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
+        if response.status_code != 200:
+            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
+            return []
 
+        soup = BeautifulSoup(response.text, "html.parser")
         events = []
         today = datetime.now().strftime("%d.%m.%Y")
 
@@ -27,6 +30,10 @@ def get_investing_calendar():
             try:
                 country_img = row.find("td", {"class": "flagCur"})
                 country = country_img.find("span").get("title").lower() if country_img else ""
+                
+                # Debug-Ausgabe (hilfreich!)
+                if country:
+                    print(f"🌍 Land gefunden: {country}")
 
                 time_col = row.find("td", {"class": "first left time"})
                 event_time = time_col.text.strip() if time_col else ""
@@ -50,23 +57,23 @@ def get_investing_calendar():
                 date_col = row.find("td", {"class": "theDay"})
                 event_date = date_col.text.strip() if date_col else today
 
+                # RICHTIGE Länderprüfung
                 if importance >= 2 and country in ["germany", "united states"] and event_date == today:
-    events.append({
-        "country": country,
-        "time": event_time,
-        "title": event_name,
-        "actual": actual,
-        "forecast": forecast,
-        "previous": previous,
-        "importance": importance
-    })
-
+                    events.append({
+                        "country": country,
+                        "time": event_time,
+                        "title": event_name,
+                        "actual": actual,
+                        "forecast": forecast,
+                        "previous": previous,
+                        "importance": importance
+                    })
 
             except Exception as e:
                 print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
                 continue
 
-        print(f"🟢 Gefundene wichtige Events: {len(events)}")
+        print(f"🟢 Gefundene wichtige Events heute: {len(events)}")
         return events
 
     except Exception as e:
