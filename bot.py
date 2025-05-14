@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import os
-from dukascopy_scraper import get_dukascopy_calendar
+from fmp_scraper import get_fmp_calendar
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -19,71 +19,53 @@ async def on_ready():
         print(f"✅ Bot ist online als {bot.user}")
         economic_calendar_loop.start()
 
+def create_embed(events, title="Wirtschaftskalender Update"):
+    embed = discord.Embed(
+        title=title,
+        description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
+        color=0x3498db
+    )
+
+    country_names = {
+        "DE": "🇩🇪 Deutschland",
+        "US": "🇺🇸 USA"
+    }
+
+    if not events:
+        embed.add_field(name="Keine Termine", value="🔔 Genießt euren Tag! 😎", inline=False)
+        return embed
+
+    for country in ["DE", "US"]:
+        country_events = [e for e in events if e['country'] == country]
+        if country_events:
+            value = ""
+            for event in country_events:
+                value += f"🕐 {event['time']} Uhr – {event['title']} (Wichtigkeit {event['importance']})\n"
+            embed.add_field(name=country_names[country], value=value, inline=False)
+        else:
+            embed.add_field(name=country_names[country], value="Keine Termine heute.", inline=False)
+
+    return embed
+
 @tasks.loop(minutes=30)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
-    weekday = now.weekday()  # Montag=0, Sonntag=6
+    weekday = now.weekday()
 
     if 0 <= weekday <= 4 and (now.hour > 7 or (now.hour == 7 and now.minute >= 30)) and now.hour <= 22:
         channel = bot.get_channel(CHANNEL_ID)
-        events = get_dukascopy_calendar()
+        events = get_fmp_calendar()
 
-        country_names = {
-            "germany": "🇩🇪 Deutschland",
-            "united states": "🇺🇸 USA"
-        }
-
-        if not events:
-            message = (
-                f"📅 **Wirtschaftskalender Update {now.strftime('%H:%M')} Uhr**\n\n"
-                "🔔 Heute keine wichtigen Termine für Deutschland 🇩🇪 oder USA 🇺🇸.\n"
-                "Genießt euren Tag! 😎"
-            )
-            await channel.send(message)
-            return
-
-        message = f"📅 **Wirtschaftskalender Update {now.strftime('%H:%M')} Uhr**\n\n"
-
-        for country in ["germany", "united states"]:
-            country_events = [e for e in events if e['country'] == country]
-            if country_events:
-                message += f"{country_names[country]}:\n"
-                for event in country_events:
-                    message += f"- {event['time']} Uhr: {event['title']}\n"
-            else:
-                message += f"Keine Termine für {country_names[country]} heute.\n"
-            message += "\n"
-
-        await channel.send(message)
+        embed = create_embed(events)
+        await channel.send(embed=embed)
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 7:30–22:00 oder Wochenende)")
 
 @bot.command()
 async def update(ctx):
-    """Manuelles Abrufen der aktuellen Wirtschaftstermine"""
-    events = get_dukascopy_calendar()
-
-    country_names = {
-        "germany": "🇩🇪 Deutschland",
-        "united states": "🇺🇸 USA"
-    }
-
-    if not events:
-        await ctx.send(f"📅 Heute keine Wirtschaftstermine für Deutschland 🇩🇪 oder USA 🇺🇸.")
-        return
-
-    message = f"📅 **Manuelles Wirtschaftskalender Update {datetime.datetime.now().strftime('%H:%M')} Uhr**\n\n"
-
-    for country in ["germany", "united states"]:
-        country_events = [e for e in events if e['country'] == country]
-        if country_events:
-            message += f"{country_names[country]}:\n"
-            for event in country_events:
-                message += f"- {event['time']} Uhr: {event['title']}\n"
-        else:
-            message += f"Keine Termine für {country_names[country]} heute.\n"
-        message += "\n"
-
-    await ctx.send(message)
+    """Manuelles Abrufen"""
+    events = get_fmp_calendar()
+    embed = create_embed(events, title="📢 Manuelles Update")
+    await ctx.send(embed=embed)
 
 bot.run(DISCORD_TOKEN)
