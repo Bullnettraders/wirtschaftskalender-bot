@@ -2,7 +2,6 @@ import requests
 from datetime import datetime
 
 def get_dukascopy_calendar():
-    # Heute Datum holen
     today = datetime.utcnow()
     year = today.year
     month = today.month
@@ -15,6 +14,9 @@ def get_dukascopy_calendar():
 
     try:
         response = requests.get(url, headers=headers)
+        print("🔵 Dukascopy API Antwort:")
+        print(response.text)  # << HIER - wir drucken ALLES, was die API zurückgibt
+
         if response.status_code != 200:
             print(f"❌ Fehler beim Abrufen: Status Code {response.status_code}")
             return []
@@ -28,7 +30,6 @@ def get_dukascopy_calendar():
             time = event.get("time", "")
             title = event.get("event", "")
 
-            # Nur Deutschland und USA Events nehmen
             if country in ["germany", "united states"]:
                 events.append({
                     "country": country,
@@ -37,6 +38,7 @@ def get_dukascopy_calendar():
                     "title": title
                 })
 
+        print(f"🟢 Gefundene Events: {len(events)}")
         return events
 
     except Exception as e:
