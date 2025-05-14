@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import datetime
 import os
 from investing_scraper import get_investing_calendar, posted_events
+from yahoo_earnings_scraper import get_yahoo_earnings
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -11,7 +12,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+CHANNEL_ID_CALENDAR = int(os.getenv("CHANNEL_ID_CALENDAR"))
+CHANNEL_ID_EARNINGS = int(os.getenv("CHANNEL_ID_EARNINGS"))
 
 @bot.event
 async def on_ready():
@@ -47,20 +49,25 @@ def create_embed(events, title="Wirtschaftskalender Update"):
 
     return embed
 
-def create_result_embed(event):
+def create_earnings_embed(earnings, title="Earnings Update"):
     embed = discord.Embed(
-        title="📢 Wirtschaftsdaten veröffentlicht",
+        title=title,
         description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
-        color=0xe67e22
+        color=0x9b59b6
     )
-    embed.add_field(
-        name=f"{'🇩🇪' if event['country'] == 'germany' else '🇺🇸'} {event['title']}",
-        value=f"🕐 {event['time']} Uhr\n"
-              f"**Ist:** {event['actual']}\n"
-              f"**Erwartung:** {event['forecast']}\n"
-              f"**Vorher:** {event['previous']}",
-        inline=False
-    )
+
+    if not earnings:
+        embed.add_field(name="Keine Earnings heute", value="📈 Genießt euren Tag! 😎", inline=False)
+        return embed
+
+    for event in earnings:
+        embed.add_field(
+            name=f"{event['company']} ({event['ticker']})",
+            value=f"🕐 {event['time']} Uhr\n"
+                  f"**EPS Erwartung:** {event['eps_estimate']}\n"
+                  f"**Umsatz Erwartung:** {event['revenue_estimate']}",
+            inline=False
+        )
     return embed
 
 @tasks.loop(minutes=1)
@@ -71,32 +78,30 @@ async def economic_calendar_loop():
     if 0 <= weekday <= 4 and (8 <= now.hour <= 22):
         if now.minute == 0 or now.minute == 30:
             print(f"🔵 Abruf um {now.strftime('%H:%M')}")
-            channel = bot.get_channel(CHANNEL_ID)
-            events = get_investing_calendar()
+            calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
+            earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
+            # Wirtschaftskalender
+            events = get_investing_calendar()
             if now.hour == 8 and now.minute == 0:
-                # Tagesvorschau um 08:00
-                embed = create_embed(events, title="📅 Tageskalender")
-                await channel.send(embed=embed)
+                embed = create_embed(events, title="📅 Tageskalender Wirtschaft")
+                await calendar_channel.send(embed=embed)
             else:
-                # Nur neue Ergebnisse posten
                 for event in events:
                     identifier = f"{event['time']} {event['title']}"
-
                     if event['actual'] and identifier not in posted_events:
-                        embed = create_result_embed(event)
-                        await channel.send(embed=embed)
+                        embed = create_embed([event], title="📢 Neues Wirtschaftsevent!")
+                        await calendar_channel.send(embed=embed)
                         posted_events.add(identifier)
+
+            # Earnings Kalender
+            earnings = get_yahoo_earnings()
+            if now.hour == 8 and now.minute == 0:
+                earnings_embed = create_earnings_embed(earnings, title="📈 Tageskalender Earnings")
+                await earnings_channel.send(embed=earnings_embed)
 
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 08:00–22:00 Uhr oder Wochenende)")
-
-@bot.command()
-async def update(ctx):
-    """Manuelles Abrufen"""
-    events = get_investing_calendar()
-    embed = create_embed(events, title="📢 Manuelles Update")
-    await ctx.send(embed=embed)
 
 @bot.command()
 async def hilfe(ctx):
@@ -109,6 +114,5 @@ async def hilfe(ctx):
     embed.add_field(name="`!update`", value="📅 Holt manuell die aktuelle Tagesübersicht.", inline=False)
     embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
     await ctx.send(embed=embed)
-
 
 bot.run(DISCORD_TOKEN)
