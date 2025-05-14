@@ -21,7 +21,7 @@ async def on_ready():
         print(f"✅ Bot ist online als {bot.user}")
         economic_calendar_loop.start()
 
-def create_embed(events, title="Wirtschaftskalender Update"):
+def create_calendar_embed(events, title="Wirtschaftskalender Update"):
     embed = discord.Embed(
         title=title,
         description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
@@ -49,6 +49,22 @@ def create_embed(events, title="Wirtschaftskalender Update"):
 
     return embed
 
+def create_calendar_result_embed(event):
+    embed = discord.Embed(
+        title="📢 Wirtschaftsdaten veröffentlicht",
+        description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
+        color=0xe67e22
+    )
+    embed.add_field(
+        name=f"{'🇩🇪' if event['country'] == 'germany' else '🇺🇸'} {event['title']}",
+        value=f"🕐 {event['time']} Uhr\n"
+              f"**Ist:** {event['actual']}\n"
+              f"**Erwartung:** {event['forecast']}\n"
+              f"**Vorher:** {event['previous']}",
+        inline=False
+    )
+    return embed
+
 def create_earnings_embed(earnings, title="Earnings Update"):
     embed = discord.Embed(
         title=title,
@@ -70,35 +86,36 @@ def create_earnings_embed(earnings, title="Earnings Update"):
         )
     return embed
 
-@tasks.loop(minutes=1)
+@tasks.loop(minutes=5)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
     weekday = now.weekday()
 
     if 0 <= weekday <= 4 and (8 <= now.hour <= 22):
-        if now.minute == 0 or now.minute == 30:
-            print(f"🔵 Abruf um {now.strftime('%H:%M')}")
-            calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
-            earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
+        print(f"🔵 Abruf um {now.strftime('%H:%M')}")
+        calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
+        earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
-            # Wirtschaftskalender
-            events = get_investing_calendar()
-            if now.hour == 8 and now.minute == 0:
-                embed = create_embed(events, title="📅 Tageskalender Wirtschaft")
-                await calendar_channel.send(embed=embed)
-            else:
-                for event in events:
-                    identifier = f"{event['time']} {event['title']}"
-                    if event['actual'] and identifier not in posted_events:
-                        embed = create_embed([event], title="📢 Neues Wirtschaftsevent!")
-                        await calendar_channel.send(embed=embed)
-                        posted_events.add(identifier)
+        # Wirtschaftskalender
+        events = get_investing_calendar()
+        if now.hour == 8 and 0 <= now.minute <= 5:
+            # Tagesübersicht Wirtschaft
+            embed = create_calendar_embed(events, title="📅 Tageskalender Wirtschaft")
+            await calendar_channel.send(embed=embed)
+        else:
+            # Neue veröffentlichte Events
+            for event in events:
+                identifier = f"{event['time']} {event['title']}"
+                if event['actual'] and identifier not in posted_events:
+                    embed = create_calendar_result_embed(event)
+                    await calendar_channel.send(embed=embed)
+                    posted_events.add(identifier)
 
-            # Earnings Kalender
-            earnings = get_yahoo_earnings()
-            if now.hour == 8 and now.minute == 0:
-                earnings_embed = create_earnings_embed(earnings, title="📈 Tageskalender Earnings")
-                await earnings_channel.send(embed=earnings_embed)
+        # Earnings Kalender
+        earnings = get_yahoo_earnings()
+        if now.hour == 8 and 0 <= now.minute <= 5:
+            earnings_embed = create_earnings_embed(earnings, title="📈 Tageskalender Earnings")
+            await earnings_channel.send(embed=earnings_embed)
 
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 08:00–22:00 Uhr oder Wochenende)")
