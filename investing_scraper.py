@@ -31,10 +31,6 @@ def get_investing_calendar():
                 country_img = row.find("td", {"class": "flagCur"})
                 country = country_img.find("span").get("title").lower() if country_img else ""
                 
-                # Debug-Ausgabe (hilfreich!)
-                if country:
-                    print(f"🌍 Land gefunden: {country}")
-
                 time_col = row.find("td", {"class": "first left time"})
                 event_time = time_col.text.strip() if time_col else ""
 
@@ -57,7 +53,6 @@ def get_investing_calendar():
                 date_col = row.find("td", {"class": "theDay"})
                 event_date = date_col.text.strip() if date_col else today
 
-                # RICHTIGE Länderprüfung
                 if importance >= 2 and country in ["germany", "united states"] and event_date == today:
                     events.append({
                         "country": country,
