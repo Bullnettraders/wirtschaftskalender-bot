@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import datetime
 import os
 from investing_scraper import get_investing_calendar, posted_events
-from yahoo_earnings_scraper import get_yahoo_earnings
+from nasdaq_earnings_scraper import get_nasdaq_earnings
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -65,7 +65,7 @@ def create_calendar_result_embed(event):
     )
     return embed
 
-def create_earnings_embed(earnings, title="Earnings Update"):
+def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings"):
     embed = discord.Embed(
         title=title,
         description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
@@ -79,7 +79,7 @@ def create_earnings_embed(earnings, title="Earnings Update"):
     for event in earnings:
         embed.add_field(
             name=f"{event['company']} ({event['ticker']})",
-            value=f"🕐 {event['time']} Uhr\n"
+            value=f"🕐 {event['report_time']}\n"
                   f"**EPS Erwartung:** {event['eps_estimate']}\n"
                   f"**Umsatz Erwartung:** {event['revenue_estimate']}",
             inline=False
@@ -103,7 +103,6 @@ async def economic_calendar_loop():
             embed = create_calendar_embed(events, title="📅 Tageskalender Wirtschaft")
             await calendar_channel.send(embed=embed)
         else:
-            # Neue veröffentlichte Events
             for event in events:
                 identifier = f"{event['time']} {event['title']}"
                 if event['actual'] and identifier not in posted_events:
@@ -111,10 +110,10 @@ async def economic_calendar_loop():
                     await calendar_channel.send(embed=embed)
                     posted_events.add(identifier)
 
-        # Earnings Kalender
-        earnings = get_yahoo_earnings()
+        # Nasdaq Earnings
+        earnings = get_nasdaq_earnings()
         if now.hour == 8 and 0 <= now.minute <= 5:
-            earnings_embed = create_earnings_embed(earnings, title="📈 Tageskalender Earnings")
+            earnings_embed = create_nasdaq_earnings_embed(earnings, title="📈 Tageskalender Earnings")
             await earnings_channel.send(embed=earnings_embed)
 
     else:
@@ -128,16 +127,23 @@ async def hilfe(ctx):
         description="Hier sind die verfügbaren Befehle:",
         color=0x3498db
     )
-    embed.add_field(name="`!update`", value="📅 Holt manuell die aktuelle Tagesübersicht.", inline=False)
+    embed.add_field(name="`!update`", value="📅 Holt manuell die aktuelle Wirtschaftskalender Übersicht.", inline=False)
+    embed.add_field(name="`!earnings`", value="📈 Holt manuell die heutigen Nasdaq Earnings.", inline=False)
     embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command()
-async def earnings(ctx):
-    """Zeigt die Earnings des Tages an"""
-    earnings = get_yahoo_earnings()
-    embed = create_earnings_embed(earnings, title="📈 Earnings Übersicht (manuell)")
+async def update(ctx):
+    """Manuelles Update Wirtschaftskalender"""
+    events = get_investing_calendar()
+    embed = create_calendar_embed(events, title="📅 Manuelles Wirtschaftskalender Update")
     await ctx.send(embed=embed)
 
+@bot.command()
+async def earnings(ctx):
+    """Manuelles Update Nasdaq Earnings"""
+    earnings = get_nasdaq_earnings()
+    embed = create_nasdaq_earnings_embed(earnings, title="📈 Manuelles Earnings Update")
+    await ctx.send(embed=embed)
 
 bot.run(DISCORD_TOKEN)
