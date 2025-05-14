@@ -98,4 +98,17 @@ async def update(ctx):
     embed = create_embed(events, title="📢 Manuelles Update")
     await ctx.send(embed=embed)
 
+@bot.command()
+async def hilfe(ctx):
+    """Zeigt alle Befehle an"""
+    embed = discord.Embed(
+        title="📖 Bot Hilfe",
+        description="Hier sind die verfügbaren Befehle:",
+        color=0x3498db
+    )
+    embed.add_field(name="`!update`", value="📅 Holt manuell die aktuelle Tagesübersicht.", inline=False)
+    embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
+    await ctx.send(embed=embed)
+
+
 bot.run(DISCORD_TOKEN)
