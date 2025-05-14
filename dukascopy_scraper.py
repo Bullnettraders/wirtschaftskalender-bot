@@ -14,8 +14,8 @@ def get_dukascopy_calendar():
 
     try:
         response = requests.get(url, headers=headers)
-        print("🔵 Dukascopy API Antwort:")
-        print(response.text)  # << HIER - wir drucken ALLES, was die API zurückgibt
+        print("🔵 API Antwort:")
+        print(response.text)  # Damit du die Rohdaten siehst!
 
         if response.status_code != 200:
             print(f"❌ Fehler beim Abrufen: Status Code {response.status_code}")
@@ -30,7 +30,8 @@ def get_dukascopy_calendar():
             time = event.get("time", "")
             title = event.get("event", "")
 
-            if country in ["germany", "united states"]:
+            # Länder richtig prüfen - jetzt flexibler:
+            if "germany" in country or "united states" in country:
                 events.append({
                     "country": country,
                     "date": date,
