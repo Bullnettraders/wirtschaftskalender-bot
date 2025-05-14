@@ -1,7 +1,7 @@
 import requests
 from datetime import datetime
 
-API_KEY = "EGgZNP6SNfwErHX2ofuNTjCtnCz8uBOZ"  # <-- Dein echter API-Key
+API_KEY = "EGgZNP6SNfwErHX2ofuNTjCtnCz8uBOZ"
 
 def get_fmp_calendar():
     today = datetime.utcnow().strftime("%Y-%m-%d")
@@ -12,6 +12,10 @@ def get_fmp_calendar():
 
     try:
         response = requests.get(url, headers=headers)
+        print(f"🔵 Anfrage URL: {url}")
+        print(f"🟡 Antwort Status: {response.status_code}")
+        print(f"🟣 Antwort Inhalt: {response.text[:500]}...")  # Nur die ersten 500 Zeichen anzeigen
+
         if response.status_code != 200:
             print(f"❌ Fehler beim Abrufen: Status Code {response.status_code}")
             return []
@@ -34,6 +38,7 @@ def get_fmp_calendar():
                     "importance": importance
                 })
 
+        print(f"🟢 Gefundene Events: {len(events)}")
         return events
 
     except Exception as e:
