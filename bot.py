@@ -47,7 +47,7 @@ async def daily_summary():
 
     await channel.send(embed=embed)
 
-# LIVE-POSTING bei neuen Events
+# LIVE-POSTING bei neuen Events (mit Flagge!)
 @tasks.loop(minutes=1)
 async def live_updates():
     now = datetime.now()
@@ -67,8 +67,16 @@ async def live_updates():
             except:
                 arrow = "➖"
 
+            # Länderflagge setzen
+            if event['country'] == "germany":
+                flag = "🇩🇪"
+            elif event['country'] == "united states":
+                flag = "🇺🇸"
+            else:
+                flag = ""
+
             embed = discord.Embed(
-                title="📢 Neue Veröffentlichung!",
+                title=f"📢 Neue Veröffentlichung! {flag}",
                 description=f"🕐 {event['time']} Uhr – {event['title']}",
                 color=0xe67e22
             )
@@ -91,20 +99,23 @@ async def kalender(ctx):
         color=0x2ecc71
     )
 
-    germany = [e for e in events if e['country'] == "germany"]
-    usa = [e for e in events if e['country'] == "united states"]
-
-    if germany:
-        text = "\n".join([f"🕐 {e['time']} – {e['title']}" for e in germany])
-        embed.add_field(name="🇩🇪 Deutschland", value=text, inline=False)
+    if not events:
+        embed.add_field(name="🔔 Hinweis", value="Heute keine wichtigen Termine für Deutschland 🇩🇪 oder USA 🇺🇸.", inline=False)
     else:
-        embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine wichtigen Termine.", inline=False)
+        germany = [e for e in events if e['country'] == "germany"]
+        usa = [e for e in events if e['country'] == "united states"]
 
-    if usa:
-        text = "\n".join([f"🕐 {e['time']} – {e['title']}" for e in usa])
-        embed.add_field(name="🇺🇸 USA", value=text, inline=False)
-    else:
-        embed.add_field(name="🇺🇸 USA", value="🔔 Keine wichtigen Termine.", inline=False)
+        if germany:
+            text = "\n".join([f"🕐 {e['time']} – {e['title']}" for e in germany])
+            embed.add_field(name="🇩🇪 Deutschland", value=text, inline=False)
+        else:
+            embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine wichtigen Termine.", inline=False)
+
+        if usa:
+            text = "\n".join([f"🕐 {e['time']} – {e['title']}" for e in usa])
+            embed.add_field(name="🇺🇸 USA", value=text, inline=False)
+        else:
+            embed.add_field(name="🇺🇸 USA", value="🔔 Keine wichtigen Termine.", inline=False)
 
     await ctx.send(embed=embed)
 
