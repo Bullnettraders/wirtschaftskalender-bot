@@ -1,79 +1,188 @@
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+import discord
+from discord.ext import commands, tasks
+import datetime
+import os
+from investing_scraper import get_investing_calendar, posted_events
+from earnings_scraper import get_earnings_calendar
 
-posted_events = set()
+intents = discord.Intents.default()
+intents.messages = True
+intents.message_content = True
 
-def get_investing_calendar(for_tomorrow=False):
-    url = "https://m.investing.com/economic-calendar/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+CHANNEL_ID_CALENDAR = int(os.getenv("CHANNEL_ID_CALENDAR"))
+CHANNEL_ID_EARNINGS = int(os.getenv("CHANNEL_ID_EARNINGS"))
+
+@bot.event
+async def on_ready():
+    if not economic_calendar_loop.is_running():
+        print(f"✅ Bot ist online als {bot.user}")
+        economic_calendar_loop.start()
+
+def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorrow=False):
+    date = datetime.datetime.now() + datetime.timedelta(days=1) if for_tomorrow else datetime.datetime.now()
+
+    embed = discord.Embed(
+        title=title,
+        description=f"📅 {date.strftime('%d.%m.%Y %H:%M')} Uhr",
+        color=0x1abc9c
+    )
+
+    if not events:
+        embed.add_field(
+            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine wichtigen Termine",
+            value="🔔 Genießt euren Tag! 😎\n⏳ Nächster Check in 24 Stunden!",
+            inline=False
+        )
+        return embed
+
+    germany_events = [e for e in events if "germany" in e['country']]
+    usa_events = [e for e in events if "united states" in e['country']]
+
+    if germany_events:
+        value = ""
+        for event in germany_events:
+            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+        embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
+
+    if usa_events:
+        value = ""
+        for event in usa_events:
+            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+        embed.add_field(name="🇺🇸 USA", value=value, inline=False)
+
+    return embed
+
+def create_calendar_result_embed(event):
+    embed = discord.Embed(
+        title="📢 Wirtschaftsdaten veröffentlicht",
+        description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
+        color=0xe67e22
+    )
+
+    country_flags = {
+        "germany": "🇩🇪",
+        "united states": "🇺🇸"
     }
+    flag = country_flags.get(event['country'], "")
 
+    # Richtungs-Pfeil berechnen (🔼 / 🔽)
     try:
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
-            return []
+        actual_value = float(event['actual'].replace('%', '').replace(',', '').replace('+', ''))
+        forecast_value = float(event['forecast'].replace('%', '').replace(',', '').replace('+', ''))
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        events = []
+        if actual_value > forecast_value:
+            direction = "🔼"  # Besser als erwartet
+        else:
+            direction = "🔽"  # Schlechter als erwartet
+    except:
+        direction = "❔"  # Parsing Fehler
 
-        today = datetime.now()
-        target_date = today + timedelta(days=1) if for_tomorrow else today
-        date_str = target_date.strftime("%d.%m.%Y")
+    embed.add_field(
+        name=f"{flag} {event['title']} {direction}",
+        value=f"🕐 {event['time']} Uhr\n"
+              f"**Ist:** {event['actual']}\n"
+              f"**Erwartung:** {event['forecast']}\n"
+              f"**Vorher:** {event['previous']}",
+        inline=False
+    )
+    return embed
 
-        table = soup.find("table", {"class": "genTbl"})
-        if not table:
-            print("❌ Tabelle nicht gefunden.")
-            return []
+def create_earnings_embed(earnings, title="Earnings Update", for_tomorrow=False):
+    date = datetime.datetime.now() + datetime.timedelta(days=1) if for_tomorrow else datetime.datetime.now()
 
-        rows = table.find_all("tr")
-        for row in rows:
-            try:
-                country_img = row.find("td", {"class": "flagCur"})
-                country = country_img.find("span").get("title").lower() if country_img else ""
+    embed = discord.Embed(
+        title=title,
+        description=f"📅 {date.strftime('%d.%m.%Y %H:%M')} Uhr",
+        color=0x9b59b6
+    )
 
-                time_col = row.find("td", {"class": "first left time"})
-                event_time = time_col.text.strip() if time_col else ""
+    if not earnings:
+        embed.add_field(
+            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine Earnings",
+            value="📈 Genießt euren Tag! 😎\n⏳ Nächster Check in 24 Stunden!",
+            inline=False
+        )
+        return embed
 
-                event_col = row.find("td", {"class": "event"})
-                event_name = event_col.text.strip() if event_col else ""
+    for event in earnings:
+        embed.add_field(
+            name=f"{event['company']} ({event['symbol']})",
+            value=f"🕐 Bericht: {event['report_time']}\n"
+                  f"**EPS erwartet:** {event['eps_estimate']}\n"
+                  f"**Umsatz erwartet:** {event['revenue_estimate']}",
+            inline=False
+        )
+    return embed
 
-                importance_col = row.find("td", {"class": "left textNum sentiment noWrap"})
-                importance = 0
-                if importance_col:
-                    importance = len(importance_col.find_all("i", {"class": "grayFullBullishIcon"}))
+@tasks.loop(minutes=1)
+async def economic_calendar_loop():
+    now = datetime.datetime.now()
+    weekday = now.weekday()
 
-                actual_col = row.find("td", {"class": "act"})
-                forecast_col = row.find("td", {"class": "fore"})
-                previous_col = row.find("td", {"class": "prev"})
+    if 0 <= weekday <= 4 and (7 <= now.hour <= 22):
+        print(f"🔵 Abfrage um {now.strftime('%H:%M')}")
+        calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
+        earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
-                actual = actual_col.text.strip() if actual_col else ""
-                forecast = forecast_col.text.strip() if forecast_col else ""
-                previous = previous_col.text.strip() if previous_col else ""
+        # Um 22:00 Uhr Tagesübersicht für morgen posten
+        if now.hour == 22 and now.minute <= 5:
+            tomorrow_events = get_investing_calendar(for_tomorrow=True)
+            embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Morgen)", for_tomorrow=True)
+            await calendar_channel.send(embed=embed)
 
-                date_col = row.find("td", {"class": "theDay"})
-                event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
+            tomorrow_earnings = get_earnings_calendar(for_tomorrow=True)
+            earnings_embed = create_earnings_embed(tomorrow_earnings, title="📈 Earnings Kalender (Morgen)", for_tomorrow=True)
+            await earnings_channel.send(embed=earnings_embed)
 
-                if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
-                    events.append({
-                        "country": country,
-                        "time": event_time,
-                        "title": event_name,
-                        "actual": actual,
-                        "forecast": forecast,
-                        "previous": previous,
-                        "importance": importance
-                    })
+        # Tagsüber: Einzelereignisse posten (nur neue IST-Daten)
+        today_events = get_investing_calendar()
+        for event in today_events:
+            identifier = f"{event['time']} {event['title']}"
+            if event['actual'] and identifier not in posted_events:
+                embed = create_calendar_result_embed(event)
+                await calendar_channel.send(embed=embed)
+                posted_events.add(identifier)
 
-            except Exception as e:
-                print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
-                continue
+    else:
+        print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 07–22 Uhr oder Wochenende)")
 
-        print(f"🟢 Gefundene wichtige Events: {len(events)}")
-        return events
+# ➔ Commands
 
-    except Exception as e:
-        print(f"❌ Fehler beim Scraping: {e}")
-        return []
+@bot.command()
+async def ping(ctx):
+    await ctx.send("🏓 Pong! Der Bot ist aktiv!")
+
+@bot.command()
+async def status(ctx):
+    now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+    await ctx.send(f"✅ Bot läuft! Serverzeit: {now}")
+
+@bot.command()
+async def hilfe(ctx):
+    embed = discord.Embed(
+        title="📖 Bot Hilfe",
+        description="Hier sind die verfügbaren Befehle:",
+        color=0x3498db
+    )
+    embed.add_field(name="`!kalender`", value="📅 Holt die heutigen Wirtschaftstermine.", inline=False)
+    embed.add_field(name="`!earnings`", value="📈 Holt die heutigen Earnings.", inline=False)
+    embed.add_field(name="`!ping`", value="🏓 Testet ob der Bot aktiv ist.", inline=False)
+    embed.add_field(name="`!status`", value="📊 Zeigt den Bot-Status.", inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def kalender(ctx):
+    today_events = get_investing_calendar(for_tomorrow=False)
+    embed = create_calendar_embed(today_events, title="📅 Wirtschaftskalender Heute", for_tomorrow=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def earnings(ctx):
+    today_earnings = get_earnings_calendar(for_tomorrow=False)
+    embed = create_earnings_embed(today_earnings, title="📈 Earnings Kalender Heute", for_tomorrow=False)
+    await ctx.send(embed=embed)
+
+bot.run(DISCORD_TOKEN)
