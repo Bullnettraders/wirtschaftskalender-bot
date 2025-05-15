@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 posted_events = set()
 
 def get_investing_calendar(for_tomorrow=False):
-    url = "https://m.investing.com/economic-calendar/"
+    url = "https://www.investing.com/economic-calendar/"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
@@ -21,42 +21,47 @@ def get_investing_calendar(for_tomorrow=False):
 
         today = datetime.now()
         target_date = today + timedelta(days=1) if for_tomorrow else today
-        date_str = target_date.strftime("%d.%m.%Y")
+        target_day = target_date.day
+        target_month = target_date.month
+        target_year = target_date.year
 
-        table = soup.find("table", {"class": "genTbl"})
+        table = soup.find("table", {"id": "economicCalendarData"})
         if not table:
             print("❌ Tabelle nicht gefunden.")
             return []
 
-        rows = table.find_all("tr")
+        rows = table.find_all("tr", {"event_timestamp": True})
         for row in rows:
             try:
-                country_img = row.find("td", {"class": "flagCur"})
-                country = country_img.find("span").get("title").lower() if country_img else ""
+                event_timestamp = int(row.get("event_timestamp"))
+                event_datetime = datetime.utcfromtimestamp(event_timestamp)
+                event_datetime_local = event_datetime  # Already adjusted by Investing
 
-                time_col = row.find("td", {"class": "first left time"})
-                event_time = time_col.text.strip() if time_col else ""
+                if event_datetime_local.day != target_day or event_datetime_local.month != target_month:
+                    continue
 
-                event_col = row.find("td", {"class": "event"})
-                event_name = event_col.text.strip() if event_col else ""
+                country_td = row.find("td", class_="flagCur")
+                country = country_td.get("title", "").lower() if country_td else ""
 
-                importance_col = row.find("td", {"class": "left textNum sentiment noWrap"})
+                event_time = event_datetime_local.strftime("%H:%M")
+
+                event_td = row.find("td", class_="event")
+                event_name = event_td.text.strip() if event_td else ""
+
+                actual_td = row.find("td", class_="act")
+                forecast_td = row.find("td", class_="fore")
+                previous_td = row.find("td", class_="prev")
+
+                actual = actual_td.text.strip() if actual_td else ""
+                forecast = forecast_td.text.strip() if forecast_td else ""
+                previous = previous_td.text.strip() if previous_td else ""
+
+                importance_td = row.find("td", class_="sentiment")
                 importance = 0
-                if importance_col:
-                    importance = len(importance_col.find_all("i", {"class": "grayFullBullishIcon"}))
+                if importance_td:
+                    importance = len(importance_td.find_all("i", class_="grayFullBullishIcon"))
 
-                actual_col = row.find("td", {"class": "act"})
-                forecast_col = row.find("td", {"class": "fore"})
-                previous_col = row.find("td", {"class": "prev"})
-
-                actual = actual_col.text.strip() if actual_col else ""
-                forecast = forecast_col.text.strip() if forecast_col else ""
-                previous = previous_col.text.strip() if previous_col else ""
-
-                date_col = row.find("td", {"class": "theDay"})
-                event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
-
-                if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
+                if importance >= 2 and country in ["germany", "united states"]:
                     events.append({
                         "country": country,
                         "time": event_time,
