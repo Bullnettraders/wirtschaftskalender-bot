@@ -66,11 +66,22 @@ def create_calendar_result_embed(event):
         "germany": "🇩🇪",
         "united states": "🇺🇸"
     }
-
     flag = country_flags.get(event['country'], "")
 
+    # Richtungs-Pfeil berechnen (🔼 / 🔽)
+    try:
+        actual_value = float(event['actual'].replace('%', '').replace(',', '').replace('+', ''))
+        forecast_value = float(event['forecast'].replace('%', '').replace(',', '').replace('+', ''))
+
+        if actual_value > forecast_value:
+            direction = "🔼"  # Besser als erwartet
+        else:
+            direction = "🔽"  # Schlechter als erwartet
+    except:
+        direction = "❔"  # Parsing Fehler
+
     embed.add_field(
-        name=f"{flag} {event['title']}",
+        name=f"{flag} {event['title']} {direction}",
         value=f"🕐 {event['time']} Uhr\n"
               f"**Ist:** {event['actual']}\n"
               f"**Erwartung:** {event['forecast']}\n"
