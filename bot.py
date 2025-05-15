@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
-import datetime
+import asyncio
+from datetime import datetime, time
 import os
 from investing_scraper import get_investing_calendar
 
@@ -8,7 +9,6 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 intents = discord.Intents.default()
-intents.messages = True
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -16,68 +16,87 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Bot ist online als {bot.user}")
-    economic_calendar_loop.start()
+    post_daily_summary.start()
+    check_new_events.start()
 
-@tasks.loop(minutes=15)
-async def economic_calendar_loop():
-    now = datetime.datetime.now()
+posted_events = set()
 
-    if now.weekday() >= 5:  # Samstag oder Sonntag → keine Abfrage
+def format_event(event):
+    arrow = "🔼" if event['actual'] and event['forecast'] and event['actual'] > event['forecast'] else "🔽"
+    return {
+        "title": event['title'],
+        "description": f"🕐 {event['time']} Uhr\n\n"
+                       f"**Ist**: {event['actual']} | **Erwartung**: {event['forecast']} | **Vorher**: {event['previous']}",
+        "arrow": arrow
+    }
+
+@tasks.loop(minutes=1)
+async def check_new_events():
+    now = datetime.now()
+    if now.hour < 7 or now.hour >= 22 or now.weekday() >= 5:
         return
-
-    if not (7 <= now.hour <= 22):  # Nur zwischen 7 und 22 Uhr
-        return
-
-    events = get_investing_calendar()
-
-    if not events:
-        print(f"🔵 Abfrage um {now.strftime('%H:%M')}: Keine wichtigen Termine gefunden.")
-        return
-
-    channel = bot.get_channel(CHANNEL_ID)
-    print(f"🔵 Abfrage um {now.strftime('%H:%M')}")
-    
-    for event in events:
-        time = event['time']
-        title = event['title']
-        actual = event['actual']
-        forecast = event['forecast']
-        previous = event['previous']
-
-        # Richtungspfeil bestimmen (nur wenn actual/forecast vorhanden)
-        if actual and forecast:
-            try:
-                actual_value = float(actual.replace('%', '').replace(',', '.'))
-                forecast_value = float(forecast.replace('%', '').replace(',', '.'))
-
-                if actual_value > forecast_value:
-                    arrow = "🔺"
-                elif actual_value < forecast_value:
-                    arrow = "🔻"
-                else:
-                    arrow = "➖"
-            except ValueError:
-                arrow = "➖"
-        else:
-            arrow = "➖"
-
-        msg = (
-            f"**{time} Uhr** – {title}\n"
-            f"Aktuell: {actual} {arrow}\n"
-            f"Erwartet: {forecast}\n"
-            f"Vorher: {previous}"
-        )
-
-        await channel.send(msg)
-
-@bot.command(name="kalender")
-async def kalender(ctx):
-    now = datetime.datetime.now()
 
     events = get_investing_calendar(for_tomorrow=False)
+    channel = bot.get_channel(CHANNEL_ID)
 
+    for event in events:
+        event_id = (event['time'], event['title'])
+        if event_id in posted_events:
+            continue
+
+        if event['actual']:
+            formatted = format_event(event)
+            embed = discord.Embed(
+                title=f"📍 Wirtschaftsdaten veröffentlicht",
+                description=f"📅 {now.strftime('%d.%m.%Y')} {event['time']} Uhr",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name=f"{formatted['arrow']} {formatted['title']}", value=formatted['description'], inline=False)
+            await channel.send(embed=embed)
+            posted_events.add(event_id)
+
+@bot.command(name="kalender")
+async def manual_calendar(ctx):
+    await send_daily_calendar(ctx.channel)
+
+@tasks.loop(time=time(hour=22, minute=0))
+async def post_daily_summary():
+    channel = bot.get_channel(CHANNEL_ID)
+    await send_daily_calendar(channel, for_tomorrow=True)
+
+async def send_daily_calendar(channel, for_tomorrow=False):
+    events = get_investing_calendar(for_tomorrow)
     if not events:
-        await ctx.send(f"🔔 Heute ({now.strftime('%d.%m.%Y')}) gibt es keine wichtigen Termine!")
+        await channel.send("🔔 Heute keine wichtigen Termine für Deutschland 🇩🇪 oder USA 🇺🇸.")
         return
 
-    message = f"📅 **Wirtschaftskalender Heute** ({now.strftime
+    embed = discord.Embed(
+        title="📅 Wirtschaftskalender Heute" if not for_tomorrow else "📅 Wirtschaftskalender Morgen",
+        description=f"📅 {datetime.now().strftime('%d.%m.%Y')} {datetime.now().strftime('%H:%M')} Uhr",
+        color=discord.Color.green()
+    )
+
+    de_events = [e for e in events if e['country'] == 'germany']
+    us_events = [e for e in events if e['country'] == 'united states']
+
+    value = ""
+    if de_events:
+        for event in de_events:
+            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+    else:
+        value += "🔔 Keine wichtigen Termine für Deutschland.\n"
+
+    embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
+
+    value = ""
+    if us_events:
+        for event in us_events:
+            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+    else:
+        value += "🔔 Keine wichtigen Termine für USA.\n"
+
+    embed.add_field(name="🇺🇸 USA", value=value, inline=False)
+
+    await channel.send(embed=embed)
+
+bot.run(DISCORD_TOKEN)
