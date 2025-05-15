@@ -1,47 +1,39 @@
 import requests
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
 
-FMP_API_KEY = os.getenv("FMP_API_KEY")  # Dein API Key aus Umgebungsvariablen
+FMP_API_KEY = os.getenv("FMP_API_KEY")
 
 def get_earnings_calendar(for_tomorrow=False):
     if not FMP_API_KEY:
-        print("❌ Kein API Key für FinancialModelingPrep gefunden!")
+        print("❌ Kein API Key für FMP gefunden!")
         return []
 
     today = datetime.now()
     target_date = today + timedelta(days=1) if for_tomorrow else today
-    from_date = target_date.strftime("%Y-%m-%d")
-    to_date = from_date
+    date_str = target_date.strftime("%Y-%m-%d")
 
-    url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+    url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={date_str}&to={date_str}&apikey={FMP_API_KEY}"
 
     try:
         response = requests.get(url)
         if response.status_code != 200:
-            print(f"❌ Fehler: Status Code {response.status_code}")
+            print(f"❌ Fehler: Status {response.status_code}")
             return []
 
-        earnings_data = response.json()
-        events = []
-
-        for item in earnings_data:
-            company = item.get("company", "Unbekannt")
-            symbol = item.get("symbol", "???")
-            eps_estimate = item.get("epsEstimated", "Keine Angabe")
-            revenue_estimate = item.get("revenueEstimated", "Keine Angabe")
-            time = item.get("time", "Zeit unbekannt")
-
-            events.append({
-                "company": company,
-                "symbol": symbol,
-                "eps_estimate": eps_estimate,
-                "revenue_estimate": revenue_estimate,
-                "report_time": time
+        earnings = response.json()
+        results = []
+        for entry in earnings:
+            results.append({
+                "company": entry.get("company", ""),
+                "symbol": entry.get("symbol", ""),
+                "eps_estimate": entry.get("epsEstimated", "n/a"),
+                "revenue_estimate": entry.get("revenueEstimated", "n/a"),
+                "report_time": entry.get("time", "—")
             })
 
-        print(f"🟢 Gefundene Earnings: {len(events)}")
-        return events
+        print(f"🟢 Gefundene Earnings: {len(results)}")
+        return results
 
     except Exception as e:
         print(f"❌ Fehler beim Abrufen der Earnings: {e}")
