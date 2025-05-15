@@ -1,10 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 
 posted_events = set()
 
-def get_investing_calendar():
+def get_investing_calendar(for_tomorrow=False):
     url = "https://m.investing.com/economic-calendar/"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -18,7 +18,10 @@ def get_investing_calendar():
 
         soup = BeautifulSoup(response.text, "html.parser")
         events = []
-        today = datetime.now().strftime("%d.%m.%Y")
+
+        today = datetime.now()
+        target_date = today + timedelta(days=1) if for_tomorrow else today
+        date_str = target_date.strftime("%d.%m.%Y")
 
         table = soup.find("table", {"class": "genTbl"})
         if not table:
@@ -30,7 +33,7 @@ def get_investing_calendar():
             try:
                 country_img = row.find("td", {"class": "flagCur"})
                 country = country_img.find("span").get("title").lower() if country_img else ""
-                
+
                 time_col = row.find("td", {"class": "first left time"})
                 event_time = time_col.text.strip() if time_col else ""
 
@@ -51,9 +54,9 @@ def get_investing_calendar():
                 previous = previous_col.text.strip() if previous_col else ""
 
                 date_col = row.find("td", {"class": "theDay"})
-                event_date = date_col.text.strip() if date_col else today
+                event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
 
-                if importance >= 2 and country in ["germany", "united states"] and event_date == today:
+                if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
                     events.append({
                         "country": country,
                         "time": event_time,
@@ -68,7 +71,7 @@ def get_investing_calendar():
                 print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
                 continue
 
-        print(f"🟢 Gefundene wichtige Events heute: {len(events)}")
+        print(f"🟢 Gefundene wichtige Events: {len(events)}")
         return events
 
     except Exception as e:
