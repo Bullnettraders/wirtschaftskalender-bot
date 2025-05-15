@@ -1,4 +1,5 @@
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 posted_events = set()
@@ -18,9 +19,9 @@ def get_investing_calendar(for_tomorrow=False):
 
     payload = {
         "country[]": ["4", "5"],  # 4 = USA, 5 = Deutschland
-        "importance[]": ["2", "3"],  # Nur ab 2 Sternen Wichtigkeit
+        "importance[]": ["2", "3"],  # nur ab 2 Sternen
         "timeZone": "55",  # Europa/Berlin
-        "timeFilter": "timeRemain",  # Zeige nur relevante Zeiten
+        "timeFilter": "timeRemain",
         "dateFrom": from_date,
         "dateTo": to_date
     }
@@ -38,8 +39,6 @@ def get_investing_calendar(for_tomorrow=False):
             return []
 
         events_raw_html = data['data']
-        from bs4 import BeautifulSoup
-
         soup = BeautifulSoup(events_raw_html, "lxml")
         rows = soup.find_all("tr", class_="js-event-item")
 
@@ -63,7 +62,11 @@ def get_investing_calendar(for_tomorrow=False):
                 previous = previous_td.get_text(strip=True) if previous_td else "n/a"
 
                 if timestamp:
-                    event_time = datetime.utcfromtimestamp(int(timestamp)).strftime("%H:%M")
+                    try:
+                        event_time_dt = datetime.strptime(timestamp, "%Y/%m/%d %H:%M")
+                        event_time = event_time_dt.strftime("%H:%M")
+                    except Exception:
+                        event_time = "—"
                 else:
                     event_time = "—"
 
