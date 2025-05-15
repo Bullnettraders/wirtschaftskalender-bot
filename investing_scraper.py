@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
+posted_events = set()
+
 def get_investing_calendar(for_tomorrow=False):
     url = "https://m.investing.com/economic-calendar/"
     headers = {
@@ -11,7 +13,7 @@ def get_investing_calendar(for_tomorrow=False):
     try:
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
+            print(f"Fehler beim Abrufen: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, "lxml")
@@ -23,7 +25,7 @@ def get_investing_calendar(for_tomorrow=False):
 
         table = soup.find("table", {"class": "genTbl"})
         if not table:
-            print("❌ Tabelle nicht gefunden.")
+            print("Tabelle nicht gefunden.")
             return []
 
         rows = table.find_all("tr")
@@ -66,12 +68,12 @@ def get_investing_calendar(for_tomorrow=False):
                     })
 
             except Exception as e:
-                print(f"⚠️ Fehler beim Parsen eines Events: {e}")
+                print(f"Fehler beim Parsen einer Zeile: {e}")
                 continue
 
-        print(f"🟢 Gefundene wichtige Events: {len(events)}")
+        print(f"Gefundene wichtige Events: {len(events)}")
         return events
 
     except Exception as e:
-        print(f"❌ Fehler beim Scraping: {e}")
+        print(f"Fehler beim Scraping: {e}")
         return []
