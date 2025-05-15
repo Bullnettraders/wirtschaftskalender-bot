@@ -16,7 +16,7 @@ def get_nasdaq_earnings(for_tomorrow=False):
     try:
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
+            print(f"❌ Fehler: Status Code {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, "html.parser")
@@ -31,7 +31,7 @@ def get_nasdaq_earnings(for_tomorrow=False):
             return []
 
         events = []
-        rows = table.find_all("tr")[1:]  # Skip header
+        rows = table.find_all("tr")[1:]  # Erste Zeile ist Header
 
         for row in rows:
             cols = row.find_all("td")
