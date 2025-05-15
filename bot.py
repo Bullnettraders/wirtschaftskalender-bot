@@ -18,7 +18,7 @@ async def on_ready():
     daily_summary.start()
     live_updates.start()
 
-# TÄGLICHE ÜBERSICHT um 22:00 Uhr
+# TAGESÜBERSICHT UM 22 UHR (für morgen)
 @tasks.loop(time=time(hour=22, minute=0))
 async def daily_summary():
     channel = bot.get_channel(CHANNEL_ID)
@@ -26,7 +26,7 @@ async def daily_summary():
 
     embed = discord.Embed(
         title="📅 Wirtschaftskalender Morgen",
-        description=f"📅 {(datetime.now() + timedelta(days=1)).strftime('%d.%m.%Y')}",
+        description="",
         color=0x3498db
     )
 
@@ -47,7 +47,7 @@ async def daily_summary():
 
     await channel.send(embed=embed)
 
-# LIVE-POSTING neuer Events
+# LIVE-POSTING bei neuen Events
 @tasks.loop(minutes=1)
 async def live_updates():
     now = datetime.now()
@@ -60,7 +60,13 @@ async def live_updates():
     for event in today_events:
         identifier = (event['time'], event['title'])
         if event['actual'] and identifier not in posted_events:
-            arrow = "🔼" if event['actual'] > event['forecast'] else "🔽"
+            try:
+                actual_val = float(event['actual'].replace('%','').replace(',','.'))
+                forecast_val = float(event['forecast'].replace('%','').replace(',','.'))
+                arrow = "🔼" if actual_val > forecast_val else "🔽"
+            except:
+                arrow = "➖"
+
             embed = discord.Embed(
                 title="📢 Neue Veröffentlichung!",
                 description=f"🕐 {event['time']} Uhr – {event['title']}",
@@ -74,14 +80,14 @@ async def live_updates():
             await channel.send(embed=embed)
             posted_events.add(identifier)
 
-# MANUELL: !kalender Befehl
+# MANUELLER BEFEHL: !kalender
 @bot.command(name="kalender")
 async def kalender(ctx):
     events = get_investing_calendar(for_tomorrow=False)
 
     embed = discord.Embed(
         title="📅 Wirtschaftskalender Heute",
-        description=f"📅 {datetime.now().strftime('%d.%m.%Y')}",
+        description="",
         color=0x2ecc71
     )
 
