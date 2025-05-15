@@ -52,8 +52,7 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
     if germany_events:
         value = ""
         for event in germany_events:
-            event_time = event['time'] if event['time'] else "—"
-            value += f"🕐 {event_time} – {event['title']}\n"
+            value += f"🕐 {event['time']} – {event['title']}\n"
         embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
     else:
         embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine wichtigen Termine für Deutschland.", inline=False)
@@ -61,8 +60,7 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
     if usa_events:
         value = ""
         for event in usa_events:
-            event_time = event['time'] if event['time'] else "—"
-            value += f"🕐 {event_time} – {event['title']}\n"
+            value += f"🕐 {event['time']} – {event['title']}\n"
         embed.add_field(name="🇺🇸 USA", value=value, inline=False)
     else:
         embed.add_field(name="🇺🇸 USA", value="🔔 Keine wichtigen Termine für USA.", inline=False)
