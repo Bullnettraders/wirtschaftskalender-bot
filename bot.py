@@ -1,102 +1,117 @@
 import discord
 from discord.ext import commands, tasks
-import asyncio
 from datetime import datetime, time
 import os
-from investing_scraper import get_investing_calendar
+from investing_scraper import get_investing_calendar, posted_events
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+CHANNEL_ID_CALENDAR = int(os.getenv("CHANNEL_ID_CALENDAR"))
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+def format_arrow(actual, forecast):
+    try:
+        actual_val = float(actual.replace('%','').replace(',','.'))
+        forecast_val = float(forecast.replace('%','').replace(',','.'))
+        if actual_val > forecast_val:
+            return "🔼"
+        elif actual_val < forecast_val:
+            return "🔽"
+        else:
+            return "➖"
+    except:
+        return "❔"
+
 @bot.event
 async def on_ready():
-    print(f"✅ Bot ist online als {bot.user}")
-    post_daily_summary.start()
-    check_new_events.start()
-
-posted_events = set()
-
-def format_event(event):
-    arrow = "🔼" if event['actual'] and event['forecast'] and event['actual'] > event['forecast'] else "🔽"
-    return {
-        "title": event['title'],
-        "description": f"🕐 {event['time']} Uhr\n\n"
-                       f"**Ist**: {event['actual']} | **Erwartung**: {event['forecast']} | **Vorher**: {event['previous']}",
-        "arrow": arrow
-    }
-
-@tasks.loop(minutes=1)
-async def check_new_events():
-    now = datetime.now()
-    if now.hour < 7 or now.hour >= 22 or now.weekday() >= 5:
-        return
-
-    events = get_investing_calendar(for_tomorrow=False)
-    channel = bot.get_channel(CHANNEL_ID)
-
-    for event in events:
-        event_id = (event['time'], event['title'])
-        if event_id in posted_events:
-            continue
-
-        if event['actual']:
-            formatted = format_event(event)
-            embed = discord.Embed(
-                title=f"📍 Wirtschaftsdaten veröffentlicht",
-                description=f"📅 {now.strftime('%d.%m.%Y')} {event['time']} Uhr",
-                color=discord.Color.blue()
-            )
-            embed.add_field(name=f"{formatted['arrow']} {formatted['title']}", value=formatted['description'], inline=False)
-            await channel.send(embed=embed)
-            posted_events.add(event_id)
-
-@bot.command(name="kalender")
-async def manual_calendar(ctx):
-    await send_daily_calendar(ctx.channel)
+    print(f"Bot ist online als {bot.user}")
+    daily_summary.start()
+    event_check_loop.start()
 
 @tasks.loop(time=time(hour=22, minute=0))
-async def post_daily_summary():
-    channel = bot.get_channel(CHANNEL_ID)
-    await send_daily_calendar(channel, for_tomorrow=True)
+async def daily_summary():
+    channel = bot.get_channel(CHANNEL_ID_CALENDAR)
+    tomorrow_events = get_investing_calendar(for_tomorrow=True)
+    embed = create_calendar_embed(tomorrow_events, title="📅 Wirtschaftskalender Morgen", for_tomorrow=True)
+    await channel.send(embed=embed)
 
-async def send_daily_calendar(channel, for_tomorrow=False):
-    events = get_investing_calendar(for_tomorrow)
-    if not events:
-        await channel.send("🔔 Heute keine wichtigen Termine für Deutschland 🇩🇪 oder USA 🇺🇸.")
+@tasks.loop(minutes=1)
+async def event_check_loop():
+    now = datetime.now()
+    if now.weekday() >= 5 or not (7 <= now.hour <= 22):
         return
 
+    channel = bot.get_channel(CHANNEL_ID_CALENDAR)
+    today_events = get_investing_calendar()
+    for event in today_events:
+        identifier = (event['time'], event['title'])
+        if event['actual'] and identifier not in posted_events:
+            arrow = format_arrow(event['actual'], event['forecast'])
+            embed = discord.Embed(
+                title="📢 Neue Veröffentlichung!",
+                description=f"🕐 {event['time']} Uhr – {event['title']}",
+                color=0xe67e22
+            )
+            embed.add_field(
+                name=f"Ergebnis {arrow}",
+                value=f"**Ist:** {event['actual']} | **Erwartung:** {event['forecast']} | **Vorher:** {event['previous']}",
+                inline=False
+            )
+            await channel.send(embed=embed)
+            posted_events.add(identifier)
+
+@bot.command()
+async def kalender(ctx):
+    today_events = get_investing_calendar()
+    embed = create_calendar_embed(today_events, title="📅 Wirtschaftskalender Heute")
+    await ctx.send(embed=embed)
+
+def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorrow=False):
+    date = datetime.now()
+    if for_tomorrow:
+        from datetime import timedelta
+        date += timedelta(days=1)
     embed = discord.Embed(
-        title="📅 Wirtschaftskalender Heute" if not for_tomorrow else "📅 Wirtschaftskalender Morgen",
-        description=f"📅 {datetime.now().strftime('%d.%m.%Y')} {datetime.now().strftime('%H:%M')} Uhr",
-        color=discord.Color.green()
+        title=title,
+        description=f"📅 {date.strftime('%d.%m.%Y')}",
+        color=0x1abc9c
     )
 
-    de_events = [e for e in events if e['country'] == 'germany']
-    us_events = [e for e in events if e['country'] == 'united states']
+    if not events:
+        embed.add_field(name="📅 Keine wichtigen Termine", value="🔔 Genießt euren Tag! 😎", inline=False)
+        return embed
 
-    value = ""
-    if de_events:
-        for event in de_events:
-            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+    germany_events = [e for e in events if e['country'] == "germany"]
+    usa_events = [e for e in events if e['country'] == "united states"]
+
+    def sort_by_time(e):
+        try:
+            return datetime.strptime(e['time'], "%H:%M")
+        except:
+            return datetime.min
+
+    germany_events = sorted(germany_events, key=sort_by_time)
+    usa_events = sorted(usa_events, key=sort_by_time)
+
+    if germany_events:
+        val = ""
+        for e in germany_events:
+            val += f"🕐 {e['time']} Uhr – {e['title']}\n"
+        embed.add_field(name="🇩🇪 Deutschland", value=val, inline=False)
     else:
-        value += "🔔 Keine wichtigen Termine für Deutschland.\n"
+        embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine Termine.", inline=False)
 
-    embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
-
-    value = ""
-    if us_events:
-        for event in us_events:
-            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+    if usa_events:
+        val = ""
+        for e in usa_events:
+            val += f"🕐 {e['time']} Uhr – {e['title']}\n"
+        embed.add_field(name="🇺🇸 USA", value=val, inline=False)
     else:
-        value += "🔔 Keine wichtigen Termine für USA.\n"
+        embed.add_field(name="🇺🇸 USA", value="🔔 Keine Termine.", inline=False)
 
-    embed.add_field(name="🇺🇸 USA", value=value, inline=False)
-
-    await channel.send(embed=embed)
+    return embed
 
 bot.run(DISCORD_TOKEN)
