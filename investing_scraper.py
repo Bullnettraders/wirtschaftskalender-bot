@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 
 posted_events = set()
 
@@ -13,7 +13,7 @@ def get_investing_calendar(for_tomorrow=False):
     try:
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
+            print(f"❌ Fehler beim Abrufen: {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, "lxml")
@@ -26,7 +26,7 @@ def get_investing_calendar(for_tomorrow=False):
         rows = table.find_all("tr", {"class": "js-event-item"})
 
         today = datetime.now()
-        target_date = today if not for_tomorrow else today.replace(day=today.day + 1)
+        target_date = today if not for_tomorrow else today + timedelta(days=1)
         date_today = target_date.strftime("%Y-%m-%d")
 
         events = []
@@ -37,7 +37,6 @@ def get_investing_calendar(for_tomorrow=False):
                 if not date_attr:
                     continue
 
-                # HIER richtig parsen
                 event_time_obj = datetime.strptime(date_attr, "%Y/%m/%d %H:%M:%S")
                 event_date = event_time_obj.strftime("%Y-%m-%d")
                 event_time = event_time_obj.strftime("%H:%M")
@@ -54,10 +53,18 @@ def get_investing_calendar(for_tomorrow=False):
                 title_td = row.find("td", class_="event")
                 event_name = title_td.get_text(strip=True) if title_td else "Unbekanntes Event"
 
+                actual_td = row.find("td", class_="act")
+                forecast_td = row.find("td", class_="fore")
+
+                actual = actual_td.get_text(strip=True) if actual_td else ""
+                forecast = forecast_td.get_text(strip=True) if forecast_td else ""
+
                 events.append({
                     "country": country,
                     "time": event_time if event_time else "—",
-                    "title": event_name
+                    "title": event_name,
+                    "actual": actual,
+                    "forecast": forecast
                 })
 
             except Exception as e:
