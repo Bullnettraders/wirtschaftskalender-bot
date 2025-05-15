@@ -21,18 +21,19 @@ async def on_ready():
         print(f"✅ Bot ist online als {bot.user}")
         economic_calendar_loop.start()
 
-def create_calendar_embed(events, title="Wirtschaftskalender Update"):
+def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorrow=False):
+    date = datetime.datetime.now() + datetime.timedelta(days=1) if for_tomorrow else datetime.datetime.now()
+
     embed = discord.Embed(
         title=title,
-        description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
+        description=f"📅 {date.strftime('%d.%m.%Y %H:%M')} Uhr",
         color=0x1abc9c
     )
 
     if not events:
-        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%d.%m.%Y")
         embed.add_field(
-            name=f"📅 {tomorrow} – Keine wichtigen Termine",
-            value="🔔 Genießt euren Tag! 😎",
+            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine wichtigen Termine",
+            value="🔔 Genießt euren Tag! 😎\n⏳ Nächster Check in 24 Stunden!",
             inline=False
         )
         return embed
@@ -78,18 +79,19 @@ def create_calendar_result_embed(event):
     )
     return embed
 
-def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings"):
+def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings", for_tomorrow=False):
+    date = datetime.datetime.now() + datetime.timedelta(days=1) if for_tomorrow else datetime.datetime.now()
+
     embed = discord.Embed(
         title=title,
-        description=f"📅 {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')} Uhr",
+        description=f"📅 {date.strftime('%d.%m.%Y %H:%M')} Uhr",
         color=0x9b59b6
     )
 
     if not earnings:
-        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%d.%m.%Y")
         embed.add_field(
-            name=f"📅 {tomorrow} – Keine Earnings morgen",
-            value="📈 Genießt euren Tag! 😎",
+            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine Earnings morgen",
+            value="📈 Genießt euren Tag! 😎\n⏳ Nächster Check in 24 Stunden!",
             inline=False
         )
         return embed
@@ -114,17 +116,17 @@ async def economic_calendar_loop():
         calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
         earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
-        # 22:00 Uhr ➔ Tagesübersicht für Morgen posten
+        # 22:00 Uhr ➔ NUR Tagesübersicht für Morgen posten
         if now.hour == 22 and now.minute <= 5:
             tomorrow_events = get_investing_calendar(for_tomorrow=True)
-            embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Morgen)")
+            embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Morgen)", for_tomorrow=True)
             await calendar_channel.send(embed=embed)
 
             tomorrow_earnings = get_nasdaq_earnings(for_tomorrow=True)
-            earnings_embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Morgen)")
+            earnings_embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Morgen)", for_tomorrow=True)
             await earnings_channel.send(embed=earnings_embed)
 
-        # Tagsüber: Veröffentlichte Einzelereignisse posten
+        # Tagsüber: Einzelereignisse posten (nur neue Ergebnisse)
         today_events = get_investing_calendar()
         for event in today_events:
             identifier = f"{event['time']} {event['title']}"
@@ -151,13 +153,13 @@ async def hilfe(ctx):
 @bot.command()
 async def kalender(ctx):
     tomorrow_events = get_investing_calendar(for_tomorrow=True)
-    embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Manuell)")
+    embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Manuell)", for_tomorrow=True)
     await ctx.send(embed=embed)
 
 @bot.command()
 async def earnings(ctx):
     tomorrow_earnings = get_nasdaq_earnings(for_tomorrow=True)
-    embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Manuell)")
+    embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Manuell)", for_tomorrow=True)
     await ctx.send(embed=embed)
 
 bot.run(DISCORD_TOKEN)
