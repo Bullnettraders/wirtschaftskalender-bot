@@ -39,14 +39,16 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
         return embed
 
     germany_events = [e for e in events if "germany" in e['country']]
-    usa_events = [e for e in events if "united states" in e['country']]
+    usa_events = [e for e in events if "united states" in e['country']
+
+    ]
 
     # Sortieren nach Uhrzeit
     def event_sort_key(e):
         try:
             return datetime.datetime.strptime(e['time'], "%H:%M")
         except:
-            return datetime.datetime.min  # Falls Zeit fehlt
+            return datetime.datetime.min  # Falls keine Zeit da ist
 
     germany_events = sorted(germany_events, key=event_sort_key)
     usa_events = sorted(usa_events, key=event_sort_key)
@@ -55,7 +57,7 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
         value = ""
         for event in germany_events:
             event_time = event['time'] if event['time'] else "Zeit unbekannt"
-            value += f"🕐 {event_time} Uhr – {event['title']}\n"
+            value += f"🕐 {event_time} – {event['title']}\n"
         embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
     else:
         embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine wichtigen Termine für Deutschland.", inline=False)
@@ -64,7 +66,7 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
         value = ""
         for event in usa_events:
             event_time = event['time'] if event['time'] else "Zeit unbekannt"
-            value += f"🕐 {event_time} Uhr – {event['title']}\n"
+            value += f"🕐 {event_time} – {event['title']}\n"
         embed.add_field(name="🇺🇸 USA", value=value, inline=False)
     else:
         embed.add_field(name="🇺🇸 USA", value="🔔 Keine wichtigen Termine für USA.", inline=False)
@@ -133,7 +135,7 @@ def create_earnings_embed(earnings, title="Earnings Update", for_tomorrow=False)
         )
     return embed
 
-@tasks.loop(minutes=1)
+@tasks.loop(minutes=15)
 async def economic_calendar_loop():
     now = datetime.datetime.now()
     weekday = now.weekday()
