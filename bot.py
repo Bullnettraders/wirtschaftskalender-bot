@@ -116,7 +116,7 @@ async def economic_calendar_loop():
         calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
         earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
-        # 22:00 Uhr ➔ NUR Tagesübersicht für Morgen posten
+        # 22:00 Uhr ➔ Tagesübersicht für Morgen posten
         if now.hour == 22 and now.minute <= 5:
             tomorrow_events = get_investing_calendar(for_tomorrow=True)
             embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Morgen)", for_tomorrow=True)
@@ -138,6 +138,17 @@ async def economic_calendar_loop():
     else:
         print(f"🕗 Ignoriert um {now.strftime('%H:%M')} (außerhalb 07–22 Uhr oder Wochenende)")
 
+# ➔ Commands
+
+@bot.command()
+async def ping(ctx):
+    await ctx.send("🏓 Pong! Der Bot ist aktiv!")
+
+@bot.command()
+async def status(ctx):
+    now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+    await ctx.send(f"✅ Bot läuft! Aktuelle Serverzeit: {now}")
+
 @bot.command()
 async def hilfe(ctx):
     embed = discord.Embed(
@@ -147,6 +158,8 @@ async def hilfe(ctx):
     )
     embed.add_field(name="`!kalender`", value="📅 Holt die morgigen Wirtschaftstermine.", inline=False)
     embed.add_field(name="`!earnings`", value="📈 Holt die morgigen Earnings.", inline=False)
+    embed.add_field(name="`!ping`", value="🏓 Testet ob der Bot aktiv ist.", inline=False)
+    embed.add_field(name="`!status`", value="📊 Zeigt den aktuellen Status.", inline=False)
     embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
     await ctx.send(embed=embed)
 
