@@ -41,17 +41,33 @@ def create_calendar_embed(events, title="Wirtschaftskalender Update", for_tomorr
     germany_events = [e for e in events if "germany" in e['country']]
     usa_events = [e for e in events if "united states" in e['country']]
 
+    # Sortieren nach Uhrzeit
+    def event_sort_key(e):
+        try:
+            return datetime.datetime.strptime(e['time'], "%H:%M")
+        except:
+            return datetime.datetime.min  # Falls Zeit fehlt
+
+    germany_events = sorted(germany_events, key=event_sort_key)
+    usa_events = sorted(usa_events, key=event_sort_key)
+
     if germany_events:
         value = ""
         for event in germany_events:
-            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+            event_time = event['time'] if event['time'] else "Zeit unbekannt"
+            value += f"🕐 {event_time} Uhr – {event['title']}\n"
         embed.add_field(name="🇩🇪 Deutschland", value=value, inline=False)
+    else:
+        embed.add_field(name="🇩🇪 Deutschland", value="🔔 Keine wichtigen Termine für Deutschland.", inline=False)
 
     if usa_events:
         value = ""
         for event in usa_events:
-            value += f"🕐 {event['time']} Uhr – {event['title']}\n"
+            event_time = event['time'] if event['time'] else "Zeit unbekannt"
+            value += f"🕐 {event_time} Uhr – {event['title']}\n"
         embed.add_field(name="🇺🇸 USA", value=value, inline=False)
+    else:
+        embed.add_field(name="🇺🇸 USA", value="🔔 Keine wichtigen Termine für USA.", inline=False)
 
     return embed
 
@@ -68,17 +84,17 @@ def create_calendar_result_embed(event):
     }
     flag = country_flags.get(event['country'], "")
 
-    # Richtungs-Pfeil berechnen (🔼 / 🔽)
+    # Pfeil bestimmen 🔼/🔽
     try:
         actual_value = float(event['actual'].replace('%', '').replace(',', '').replace('+', ''))
         forecast_value = float(event['forecast'].replace('%', '').replace(',', '').replace('+', ''))
 
         if actual_value > forecast_value:
-            direction = "🔼"  # Besser als erwartet
+            direction = "🔼"
         else:
-            direction = "🔽"  # Schlechter als erwartet
+            direction = "🔽"
     except:
-        direction = "❔"  # Parsing Fehler
+        direction = "❔"
 
     embed.add_field(
         name=f"{flag} {event['title']} {direction}",
