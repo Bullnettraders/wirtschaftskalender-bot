@@ -43,10 +43,8 @@ def get_investing_calendar(for_tomorrow=False):
                     continue
 
                 country = row.get("data-country", "").lower()
-
                 title_td = row.find("td", class_="event")
                 event_name = title_td.text.strip() if title_td else ""
-
                 importance = len(row.find_all("i", {"class": "grayFullBullishIcon"}))
 
                 actual_td = row.find("td", class_="act")
@@ -57,7 +55,6 @@ def get_investing_calendar(for_tomorrow=False):
                 forecast = forecast_td.text.strip() if forecast_td else ""
                 previous = previous_td.text.strip() if previous_td else ""
 
-                # Wenn keine Zeit angegeben ist, Strich verwenden
                 time_final = event_time if event_time != "00:00" else "—"
 
                 if importance >= 2 and country in ["de", "us"]:
