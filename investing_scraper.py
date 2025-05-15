@@ -31,29 +31,31 @@ def get_investing_calendar(for_tomorrow=False):
         rows = table.find_all("tr", {"class": "js-event-item"})
         for row in rows:
             try:
+                # Sicherstellen, dass alle Felder vorhanden sind
                 date_attr = row.get("data-event-datetime")
-                if not date_attr:
-                    continue
+                country = row.get("data-country", "").lower()
+                title_td = row.find("td", class_="event")
+                
+                if not date_attr or not country or not title_td:
+                    continue  # Unvollständige Zeile überspringen
 
                 event_time_dt = datetime.utcfromtimestamp(int(date_attr))
                 event_date_str = event_time_dt.strftime("%b %d, %Y")
                 event_time = event_time_dt.strftime("%H:%M")
 
                 if event_date_str != date_str:
-                    continue
+                    continue  # Falsches Datum, ignorieren
 
-                country = row.get("data-country", "").lower()
-                title_td = row.find("td", class_="event")
-                event_name = title_td.text.strip() if title_td else ""
+                event_name = title_td.text.strip() if title_td else "Unbekanntes Event"
                 importance = len(row.find_all("i", {"class": "grayFullBullishIcon"}))
 
                 actual_td = row.find("td", class_="act")
                 forecast_td = row.find("td", class_="fore")
                 previous_td = row.find("td", class_="prev")
 
-                actual = actual_td.text.strip() if actual_td else ""
-                forecast = forecast_td.text.strip() if forecast_td else ""
-                previous = previous_td.text.strip() if previous_td else ""
+                actual = actual_td.text.strip() if actual_td and actual_td.text.strip() else "n/a"
+                forecast = forecast_td.text.strip() if forecast_td and forecast_td.text.strip() else "n/a"
+                previous = previous_td.text.strip() if previous_td and previous_td.text.strip() else "n/a"
 
                 time_final = event_time if event_time != "00:00" else "—"
 
