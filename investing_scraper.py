@@ -2,8 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
-posted_events = set()
-
 def get_investing_calendar(for_tomorrow=False):
     url = "https://m.investing.com/economic-calendar/"
     headers = {
@@ -56,13 +54,10 @@ def get_investing_calendar(for_tomorrow=False):
                 date_col = row.find("td", {"class": "theDay"})
                 event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
 
-                # ACHTUNG hier keine int() mehr!
-                # Kein Problem wenn das Datum ein normaler String ist
-
                 if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
                     events.append({
                         "country": country,
-                        "time": event_time if event_time else "—",
+                        "time": event_time,
                         "title": event_name,
                         "actual": actual,
                         "forecast": forecast,
@@ -71,7 +66,7 @@ def get_investing_calendar(for_tomorrow=False):
                     })
 
             except Exception as e:
-                print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
+                print(f"⚠️ Fehler beim Parsen eines Events: {e}")
                 continue
 
         print(f"🟢 Gefundene wichtige Events: {len(events)}")
