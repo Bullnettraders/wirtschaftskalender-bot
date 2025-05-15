@@ -1,11 +1,14 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 
-def get_nasdaq_earnings():
-    today = datetime.now().strftime("%Y-%m-%d")
-    url = f"https://www.nasdaq.com/market-activity/earnings?date={today}"
+def get_nasdaq_earnings(for_tomorrow=False):
+    target_date = datetime.now()
+    if for_tomorrow:
+        target_date += timedelta(days=1)
+    date_str = target_date.strftime("%Y-%m-%d")
 
+    url = f"https://www.nasdaq.com/market-activity/earnings?date={date_str}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
@@ -13,12 +16,11 @@ def get_nasdaq_earnings():
     try:
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            print(f"❌ Fehler: Status Code {response.status_code}")
+            print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
             return []
 
         soup = BeautifulSoup(response.text, "html.parser")
         earnings_section = soup.find('div', class_="earnings-calendar__table-wrapper")
-
         if not earnings_section:
             print("❌ Earnings Bereich nicht gefunden.")
             return []
@@ -29,7 +31,7 @@ def get_nasdaq_earnings():
             return []
 
         events = []
-        rows = table.find_all("tr")[1:]  # erste Zeile ist Header
+        rows = table.find_all("tr")[1:]  # Skip header
 
         for row in rows:
             cols = row.find_all("td")
@@ -48,7 +50,7 @@ def get_nasdaq_earnings():
                     "revenue_estimate": revenue_estimate
                 })
 
-        print(f"🟢 Nasdaq Earnings gefunden: {len(events)} Einträge.")
+        print(f"🟢 Gefundene Nasdaq Earnings: {len(events)}")
         return events
 
     except Exception as e:
