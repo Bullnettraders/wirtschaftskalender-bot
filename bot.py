@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import datetime
 import os
 from investing_scraper import get_investing_calendar, posted_events
-from nasdaq_earnings_scraper import get_nasdaq_earnings
+from earnings_scraper import get_earnings_calendar
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -79,7 +79,7 @@ def create_calendar_result_embed(event):
     )
     return embed
 
-def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings", for_tomorrow=False):
+def create_earnings_embed(earnings, title="Earnings Update", for_tomorrow=False):
     date = datetime.datetime.now() + datetime.timedelta(days=1) if for_tomorrow else datetime.datetime.now()
 
     embed = discord.Embed(
@@ -90,7 +90,7 @@ def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings", for_tomorrow
 
     if not earnings:
         embed.add_field(
-            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine Earnings morgen",
+            name=f"📅 {date.strftime('%d.%m.%Y')} – Keine Earnings",
             value="📈 Genießt euren Tag! 😎\n⏳ Nächster Check in 24 Stunden!",
             inline=False
         )
@@ -98,10 +98,10 @@ def create_nasdaq_earnings_embed(earnings, title="Nasdaq Earnings", for_tomorrow
 
     for event in earnings:
         embed.add_field(
-            name=f"{event['company']} ({event['ticker']})",
-            value=f"🕐 {event['report_time']}\n"
-                  f"**EPS Erwartung:** {event['eps_estimate']}\n"
-                  f"**Umsatz Erwartung:** {event['revenue_estimate']}",
+            name=f"{event['company']} ({event['symbol']})",
+            value=f"🕐 Bericht: {event['report_time']}\n"
+                  f"**EPS erwartet:** {event['eps_estimate']}\n"
+                  f"**Umsatz erwartet:** {event['revenue_estimate']}",
             inline=False
         )
     return embed
@@ -116,17 +116,17 @@ async def economic_calendar_loop():
         calendar_channel = bot.get_channel(CHANNEL_ID_CALENDAR)
         earnings_channel = bot.get_channel(CHANNEL_ID_EARNINGS)
 
-        # 22:00 Uhr ➔ Tagesübersicht für Morgen posten
+        # Um 22:00 Uhr Tagesübersicht für morgen posten
         if now.hour == 22 and now.minute <= 5:
             tomorrow_events = get_investing_calendar(for_tomorrow=True)
             embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Morgen)", for_tomorrow=True)
             await calendar_channel.send(embed=embed)
 
-            tomorrow_earnings = get_nasdaq_earnings(for_tomorrow=True)
-            earnings_embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Morgen)", for_tomorrow=True)
+            tomorrow_earnings = get_earnings_calendar(for_tomorrow=True)
+            earnings_embed = create_earnings_embed(tomorrow_earnings, title="📈 Earnings Kalender (Morgen)", for_tomorrow=True)
             await earnings_channel.send(embed=earnings_embed)
 
-        # Tagsüber: Einzelereignisse posten (nur neue Ergebnisse)
+        # Tagsüber: Einzelereignisse posten (nur neue IST-Daten)
         today_events = get_investing_calendar()
         for event in today_events:
             identifier = f"{event['time']} {event['title']}"
@@ -147,7 +147,7 @@ async def ping(ctx):
 @bot.command()
 async def status(ctx):
     now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
-    await ctx.send(f"✅ Bot läuft! Aktuelle Serverzeit: {now}")
+    await ctx.send(f"✅ Bot läuft! Serverzeit: {now}")
 
 @bot.command()
 async def hilfe(ctx):
@@ -156,23 +156,22 @@ async def hilfe(ctx):
         description="Hier sind die verfügbaren Befehle:",
         color=0x3498db
     )
-    embed.add_field(name="`!kalender`", value="📅 Holt die morgigen Wirtschaftstermine.", inline=False)
-    embed.add_field(name="`!earnings`", value="📈 Holt die morgigen Earnings.", inline=False)
+    embed.add_field(name="`!kalender`", value="📅 Holt die heutigen Wirtschaftstermine.", inline=False)
+    embed.add_field(name="`!earnings`", value="📈 Holt die heutigen Earnings.", inline=False)
     embed.add_field(name="`!ping`", value="🏓 Testet ob der Bot aktiv ist.", inline=False)
-    embed.add_field(name="`!status`", value="📊 Zeigt den aktuellen Status.", inline=False)
-    embed.add_field(name="`!hilfe`", value="❓ Zeigt diese Hilfeseite.", inline=False)
+    embed.add_field(name="`!status`", value="📊 Zeigt den Bot-Status.", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command()
 async def kalender(ctx):
-    tomorrow_events = get_investing_calendar(for_tomorrow=True)
-    embed = create_calendar_embed(tomorrow_events, title="📅 Tageskalender Wirtschaft (Manuell)", for_tomorrow=True)
+    today_events = get_investing_calendar(for_tomorrow=False)
+    embed = create_calendar_embed(today_events, title="📅 Wirtschaftskalender Heute", for_tomorrow=False)
     await ctx.send(embed=embed)
 
 @bot.command()
 async def earnings(ctx):
-    tomorrow_earnings = get_nasdaq_earnings(for_tomorrow=True)
-    embed = create_nasdaq_earnings_embed(tomorrow_earnings, title="📈 Tageskalender Earnings (Manuell)", for_tomorrow=True)
+    today_earnings = get_earnings_calendar(for_tomorrow=False)
+    embed = create_earnings_embed(today_earnings, title="📈 Earnings Kalender Heute", for_tomorrow=False)
     await ctx.send(embed=embed)
 
 bot.run(DISCORD_TOKEN)
