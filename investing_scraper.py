@@ -1,68 +1,76 @@
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 posted_events = set()
 
 def get_investing_calendar(for_tomorrow=False):
-    url = "https://m.investing.com/economic-calendar/"
+    url = "https://www.investing.com/economic-calendar/Service/getCalendarFilteredData"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    today = datetime.now()
+    target_date = today + timedelta(days=1) if for_tomorrow else today
+    from_date = target_date.strftime("%Y-%m-%d")
+    to_date = target_date.strftime("%Y-%m-%d")
+
+    payload = {
+        "country[]": ["4", "5"],  # 4 = USA, 5 = Deutschland
+        "importance[]": ["2", "3"],  # Nur ab 2 Sternen Wichtigkeit
+        "timeZone": "55",  # Europa/Berlin
+        "timeFilter": "timeRemain",  # Zeige nur relevante Zeiten
+        "dateFrom": from_date,
+        "dateTo": to_date
     }
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.post(url, headers=headers, data=payload)
         if response.status_code != 200:
             print(f"❌ Fehler beim Abrufen: Status {response.status_code}")
             return []
 
-        soup = BeautifulSoup(response.text, "lxml")
-        events = []
+        data = response.json()
 
-        today = datetime.now()
-        target_date = today + timedelta(days=1) if for_tomorrow else today
-        date_str = target_date.strftime("%b %d, %Y")
-
-        table = soup.find("table", {"class": "genTbl"})
-        if not table:
-            print("❌ Tabelle nicht gefunden.")
+        if not data or 'data' not in data:
+            print("❌ Keine Daten zurückbekommen.")
             return []
 
-        rows = table.find_all("tr", {"class": "js-event-item"})
+        events_raw_html = data['data']
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(events_raw_html, "lxml")
+        rows = soup.find_all("tr", class_="js-event-item")
+
+        events = []
+
         for row in rows:
             try:
-                # Sicherstellen, dass alle Felder vorhanden sind
-                date_attr = row.get("data-event-datetime")
                 country = row.get("data-country", "").lower()
+                timestamp = row.get("data-event-datetime")
+                importance = int(row.get("data-importance", "0"))
+
                 title_td = row.find("td", class_="event")
-                
-                if not date_attr or not country or not title_td:
-                    continue  # Unvollständige Zeile überspringen
-
-                event_time_dt = datetime.utcfromtimestamp(int(date_attr))
-                event_date_str = event_time_dt.strftime("%b %d, %Y")
-                event_time = event_time_dt.strftime("%H:%M")
-
-                if event_date_str != date_str:
-                    continue  # Falsches Datum, ignorieren
-
-                event_name = title_td.text.strip() if title_td else "Unbekanntes Event"
-                importance = len(row.find_all("i", {"class": "grayFullBullishIcon"}))
+                event_name = title_td.get_text(strip=True) if title_td else "Unbekanntes Event"
 
                 actual_td = row.find("td", class_="act")
                 forecast_td = row.find("td", class_="fore")
                 previous_td = row.find("td", class_="prev")
 
-                actual = actual_td.text.strip() if actual_td and actual_td.text.strip() else "n/a"
-                forecast = forecast_td.text.strip() if forecast_td and forecast_td.text.strip() else "n/a"
-                previous = previous_td.text.strip() if previous_td and previous_td.text.strip() else "n/a"
+                actual = actual_td.get_text(strip=True) if actual_td else "n/a"
+                forecast = forecast_td.get_text(strip=True) if forecast_td else "n/a"
+                previous = previous_td.get_text(strip=True) if previous_td else "n/a"
 
-                time_final = event_time if event_time != "00:00" else "—"
+                if timestamp:
+                    event_time = datetime.utcfromtimestamp(int(timestamp)).strftime("%H:%M")
+                else:
+                    event_time = "—"
 
-                if importance >= 2 and country in ["de", "us"]:
+                if importance >= 2 and country in ["united states", "germany"]:
                     events.append({
                         "country": country,
-                        "time": time_final,
+                        "time": event_time,
                         "title": event_name,
                         "actual": actual,
                         "forecast": forecast,
@@ -78,5 +86,5 @@ def get_investing_calendar(for_tomorrow=False):
         return events
 
     except Exception as e:
-        print(f"❌ Fehler beim Scraping: {e}")
+        print(f"❌ Fehler beim Abrufen der Events: {e}")
         return []
