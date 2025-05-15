@@ -6,74 +6,50 @@ posted_events = set()
 
 def get_investing_calendar(for_tomorrow=False):
     url = "https://m.investing.com/economic-calendar/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            print(f"Fehler beim Abrufen: {response.status_code}")
-            return []
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "lxml")
+    events = []
 
-        soup = BeautifulSoup(response.text, "lxml")
-        events = []
+    today = datetime.now()
+    target_date = today + timedelta(days=1) if for_tomorrow else today
+    date_str = target_date.strftime("%d.%m.%Y")
 
-        today = datetime.now()
-        target_date = today + timedelta(days=1) if for_tomorrow else today
-        date_str = target_date.strftime("%d.%m.%Y")
+    table = soup.find("table", {"class": "genTbl"})
+    rows = table.find_all("tr") if table else []
 
-        table = soup.find("table", {"class": "genTbl"})
-        if not table:
-            print("Tabelle nicht gefunden.")
-            return []
+    for row in rows:
+        country_td = row.find("td", {"class": "flagCur"})
+        country = country_td.find("span")["title"].lower() if country_td else ""
 
-        rows = table.find_all("tr")
-        for row in rows:
-            try:
-                country_img = row.find("td", {"class": "flagCur"})
-                country = country_img.find("span").get("title").lower() if country_img else ""
+        time_td = row.find("td", {"class": "first left time"})
+        event_time = time_td.text.strip() if time_td else "—"
 
-                time_col = row.find("td", {"class": "first left time"})
-                event_time = time_col.text.strip() if time_col else "—"
+        event_td = row.find("td", {"class": "event"})
+        event_name = event_td.text.strip() if event_td else ""
 
-                event_col = row.find("td", {"class": "event"})
-                event_name = event_col.text.strip() if event_col else ""
+        importance_td = row.find("td", {"class": "left textNum sentiment noWrap"})
+        importance = len(importance_td.find_all("i", class_="grayFullBullishIcon")) if importance_td else 0
 
-                importance_col = row.find("td", {"class": "left textNum sentiment noWrap"})
-                importance = 0
-                if importance_col:
-                    importance = len(importance_col.find_all("i", {"class": "grayFullBullishIcon"}))
+        actual_td = row.find("td", {"class": "act"})
+        forecast_td = row.find("td", {"class": "fore"})
+        previous_td = row.find("td", {"class": "prev"})
 
-                actual_col = row.find("td", {"class": "act"})
-                forecast_col = row.find("td", {"class": "fore"})
-                previous_col = row.find("td", {"class": "prev"})
+        actual = actual_td.text.strip() if actual_td else ""
+        forecast = forecast_td.text.strip() if forecast_td else ""
+        previous = previous_td.text.strip() if previous_td else ""
 
-                actual = actual_col.text.strip() if actual_col else ""
-                forecast = forecast_col.text.strip() if forecast_col else ""
-                previous = previous_col.text.strip() if previous_col else ""
+        date_td = row.find("td", {"class": "theDay"})
+        event_date = date_td.text.strip() if date_td else date_str
 
-                date_col = row.find("td", {"class": "theDay"})
-                event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
-
-                if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
-                    events.append({
-                        "country": country,
-                        "time": event_time,
-                        "title": event_name,
-                        "actual": actual,
-                        "forecast": forecast,
-                        "previous": previous,
-                        "importance": importance
-                    })
-
-            except Exception as e:
-                print(f"Fehler beim Parsen einer Zeile: {e}")
-                continue
-
-        print(f"Gefundene wichtige Events: {len(events)}")
-        return events
-
-    except Exception as e:
-        print(f"Fehler beim Scraping: {e}")
-        return []
+        if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
+            events.append({
+                "country": country,
+                "time": event_time,
+                "title": event_name,
+                "actual": actual,
+                "forecast": forecast,
+                "previous": previous,
+            })
+    return events
