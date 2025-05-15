@@ -28,51 +28,50 @@ def get_investing_calendar(for_tomorrow=False):
             print("❌ Tabelle nicht gefunden.")
             return []
 
-        rows = table.find_all("tr", {"class": "js-event-item"})
+        rows = table.find_all("tr")
         for row in rows:
             try:
-                # Datum check
-                date_attr = row.get("data-event-datetime")
-                if not date_attr:
-                    continue
+                country_img = row.find("td", {"class": "flagCur"})
+                country = country_img.find("span").get("title").lower() if country_img else ""
 
-                event_date = datetime.utcfromtimestamp(int(date_attr)).strftime("%d.%m.%Y")
-                event_time = datetime.utcfromtimestamp(int(date_attr)).strftime("%H:%M")
+                time_col = row.find("td", {"class": "first left time"})
+                event_time = time_col.text.strip() if time_col else "—"
 
-                if event_date != date_str:
-                    continue
+                event_col = row.find("td", {"class": "event"})
+                event_name = event_col.text.strip() if event_col else ""
 
-                # Land
-                country_code = row.get("data-country", "").lower()
-                if country_code not in ["de", "us"]:
-                    continue
+                importance_col = row.find("td", {"class": "left textNum sentiment noWrap"})
+                importance = 0
+                if importance_col:
+                    importance = len(importance_col.find_all("i", {"class": "grayFullBullishIcon"}))
 
-                # Wichtigkeit
-                importance = int(row.get("data-importance", 0))
-                if importance < 2:
-                    continue
+                actual_col = row.find("td", {"class": "act"})
+                forecast_col = row.find("td", {"class": "fore"})
+                previous_col = row.find("td", {"class": "prev"})
 
-                # Event Titel
-                event_name_td = row.find("td", class_="event")
-                event_name = event_name_td.get_text(strip=True) if event_name_td else "Unbekanntes Event"
+                actual = actual_col.text.strip() if actual_col else ""
+                forecast = forecast_col.text.strip() if forecast_col else ""
+                previous = previous_col.text.strip() if previous_col else ""
 
-                # Werte
-                actual_td = row.find("td", class_="act")
-                forecast_td = row.find("td", class_="fore")
+                date_col = row.find("td", {"class": "theDay"})
+                event_date = date_col.text.strip() if date_col else today.strftime("%d.%m.%Y")
 
-                actual = actual_td.get_text(strip=True) if actual_td else ""
-                forecast = forecast_td.get_text(strip=True) if forecast_td else ""
+                # ACHTUNG hier keine int() mehr!
+                # Kein Problem wenn das Datum ein normaler String ist
 
-                events.append({
-                    "country": country_code,
-                    "time": event_time if event_time else "—",
-                    "title": event_name,
-                    "actual": actual,
-                    "forecast": forecast
-                })
+                if importance >= 2 and country in ["germany", "united states"] and event_date == date_str:
+                    events.append({
+                        "country": country,
+                        "time": event_time if event_time else "—",
+                        "title": event_name,
+                        "actual": actual,
+                        "forecast": forecast,
+                        "previous": previous,
+                        "importance": importance
+                    })
 
             except Exception as e:
-                print(f"⚠️ Fehler beim Parsen eines Events: {e}")
+                print(f"⚠️ Fehler beim Parsen einer Zeile: {e}")
                 continue
 
         print(f"🟢 Gefundene wichtige Events: {len(events)}")
