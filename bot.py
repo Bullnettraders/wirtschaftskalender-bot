@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo  # Für deutsche Zeitzone
 import os
 from investing_scraper import get_investing_calendar, posted_events
 
@@ -18,8 +19,8 @@ async def on_ready():
     daily_summary.start()
     live_updates.start()
 
-# TAGESÜBERSICHT UM 22 UHR (für morgen)
-@tasks.loop(time=time(hour=22, minute=0))
+# TAGESÜBERSICHT UM 22 UHR (deutsche Zeit)
+@tasks.loop(time=time(hour=22, minute=0, tzinfo=ZoneInfo("Europe/Berlin")))
 async def daily_summary():
     channel = bot.get_channel(CHANNEL_ID)
     events = get_investing_calendar(for_tomorrow=True)
@@ -47,10 +48,10 @@ async def daily_summary():
 
     await channel.send(embed=embed)
 
-# LIVE-POSTING bei neuen Events (mit Flagge!)
+# LIVE-POSTING bei neuen Events (deutsche Zeit)
 @tasks.loop(minutes=1)
 async def live_updates():
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
     if now.hour < 7 or now.hour >= 22 or now.weekday() >= 5:
         return
 
